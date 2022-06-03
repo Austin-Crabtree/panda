@@ -306,10 +306,7 @@ def get_arch_phdr(endianness, elfclass):
                     ('p_align', ctypes.c_uint32)]
 
     # End get_arch_phdr
-    if elfclass == ELFCLASS64:
-        return PHDR64()
-    else:
-        return PHDR32()
+    return PHDR64() if elfclass == ELFCLASS64 else PHDR32()
 
 
 def int128_get64(val):
@@ -392,7 +389,7 @@ def get_guest_phys_blocks():
         predecessor = None
 
         # find continuity in guest physical address space
-        if len(guest_phys_blocks) > 0:
+        if guest_phys_blocks:
             predecessor = guest_phys_blocks[-1]
             predecessor_size = (predecessor["target_end"] -
                                 predecessor["target_start"])

@@ -64,7 +64,7 @@ class QAPISchemaGenIntrospectVisitor(QAPISchemaVisitor):
         # generate C
         # TODO can generate awfully long lines
         jsons.extend(self._jsons)
-        name = c_name(prefix, protect=False) + 'qmp_schema_json'
+        name = f'{c_name(prefix, protect=False)}qmp_schema_json'
         self.decl = mcgen('''
 extern const char %(c_name)s[];
 ''',
@@ -108,7 +108,7 @@ const char %(c_name)s[] = %(c_string)s;
         if isinstance(typ, QAPISchemaBuiltinType):
             return typ.name
         if isinstance(typ, QAPISchemaArrayType):
-            return '[' + self._use_type(typ.element_type) + ']'
+            return f'[{self._use_type(typ.element_type)}]'
         return self._name(typ.name)
 
     def _gen_json(self, name, mtype, obj):
@@ -139,13 +139,13 @@ const char %(c_name)s[] = %(c_string)s;
 
     def visit_array_type(self, name, info, element_type):
         element = self._use_type(element_type)
-        self._gen_json('[' + element + ']', 'array', {'element-type': element})
+        self._gen_json(f'[{element}]', 'array', {'element-type': element})
 
     def visit_object_type_flat(self, name, info, members, variants):
         obj = {'members': [self._gen_member(m) for m in members]}
         if variants:
-            obj.update(self._gen_variants(variants.tag_member.name,
-                                          variants.variants))
+            obj |= self._gen_variants(variants.tag_member.name, variants.variants)
+
         self._gen_json(name, 'object', obj)
 
     def visit_alternate_type(self, name, info, variants):
@@ -167,15 +167,10 @@ const char %(c_name)s[] = %(c_string)s;
 
 # Debugging aid: unmask QAPI schema's type names
 # We normally mask them, because they're not QMP wire ABI
-opt_unmask = False
-
 (input_file, output_dir, do_c, do_h, prefix, opts) = \
     parse_command_line('u', ['unmask-non-abi-names'])
 
-for o, a in opts:
-    if o in ('-u', '--unmask-non-abi-names'):
-        opt_unmask = True
-
+opt_unmask = any(o in ('-u', '--unmask-non-abi-names') for o, a in opts)
 c_comment = '''
 /*
  * QAPI/QMP schema introspection

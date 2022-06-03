@@ -16,7 +16,7 @@ from qapi import *
 
 
 def gen_visit_decl(name, scalar=False):
-    c_type = c_name(name) + ' *'
+    c_type = f'{c_name(name)} *'
     if not scalar:
         c_type += '*'
     return mcgen('''
@@ -331,15 +331,10 @@ class QAPISchemaGenVisitVisitor(QAPISchemaVisitor):
 # instance of the code for built-in types.  Generate it only when
 # do_builtins, enabled by command line option -b.  See also
 # QAPISchemaGenVisitVisitor.visit_end().
-do_builtins = False
-
 (input_file, output_dir, do_c, do_h, prefix, opts) = \
     parse_command_line('b', ['builtins'])
 
-for o, a in opts:
-    if o in ('-b', '--builtins'):
-        do_builtins = True
-
+do_builtins = any(o in ('-b', '--builtins') for o, a in opts)
 c_comment = '''
 /*
  * schema-defined QAPI visitor functions

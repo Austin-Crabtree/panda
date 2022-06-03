@@ -63,6 +63,6 @@ srv.connect()
 rsp = srv.command('qom-get', path=path, property=prop)
 if type(rsp) == dict:
     for i in rsp.keys():
-        print('%s: %s' % (i, rsp[i]))
+        print(f'{i}: {rsp[i]}')
 else:
     print(rsp)

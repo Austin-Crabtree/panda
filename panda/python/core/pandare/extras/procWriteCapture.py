@@ -51,7 +51,7 @@ class ProcWriteCapture():
                 # Fun trick: lazy eval of OSI
                 # Based on the idea that a non-POSIX FD will only be used after boot is finished an OSI is functional
                 # Note: doesn't capture boot logs (would require hooking kernel's printk, not write syscall)
-                if (fd == 1) or (fd == 2) or (fd == 3):
+                if fd in [1, 2, 3]:
                     try_read = True
                 else:
                     curr_proc = panda.plugins['osi'].get_current_process(cpu)

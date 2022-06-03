@@ -42,7 +42,7 @@ def generate(events, backend, group):
         for type_, name in e.args:
             if name in RESERVED_WORDS:
                 name += '_'
-            args.append(type_ + ' ' + name)
+            args.append(f'{type_} {name}')
 
         # Define prototype for probe arguments
         out('',

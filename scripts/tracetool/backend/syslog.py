@@ -27,13 +27,13 @@ def generate_h_begin(events, group):
 def generate_h(event, group):
     argnames = ", ".join(event.args.names())
     if len(event.args) > 0:
-        argnames = ", " + argnames
+        argnames = f", {argnames}"
 
     if "vcpu" in event.properties:
         # already checked on the generic format code
         cond = "true"
     else:
-        cond = "trace_event_get_state(%s)" % ("TRACE_" + event.name.upper())
+        cond = f"trace_event_get_state(TRACE_{event.name.upper()})"
 
     out('        if (%(cond)s) {',
         '            syslog(LOG_INFO, "%(name)s " %(fmt)s %(argnames)s);',

@@ -10,19 +10,21 @@ Example plugins are available in the [examples directory](https://github.com/pan
 .. include:: ../../docs/USAGE.md
 """
 
+
 from .panda import Panda, blocking
 from .plog_reader import PLogReader
 from .pyplugin import PyPlugin
 
 __all__ = ['Panda', 'PLogReader', 'Callbacks', 'PyPlugin']
 
-__pdoc__ = {}
+__pdoc__ = {
+    'asyncthread': False,
+    'autogen': False,
+    'ffi_importer': False,
+    'plog_pb2': False,
+    'volatility_cli_classes': False,
+}
 
-__pdoc__['asyncthread'] = False
-__pdoc__['autogen'] = False
-__pdoc__['ffi_importer'] = False
-__pdoc__['plog_pb2'] = False
-__pdoc__['volatility_cli_classes'] = False
 
 # The following code is soley here to allow pdoc to document callbacks
 from .autogen.panda_datatypes import get_cb_docs
@@ -54,7 +56,7 @@ for cb_name, (rv, args, docstring) in cb_docs._asdict().items():
 
     if cb_name == "init":
         continue
-    fakename = "@panda.cb_" + cb_name
+    fakename = f"@panda.cb_{cb_name}"
 
     # Add no-op function to the class
     setattr(Callbacks, fakename, lambda Your_Function: None)
@@ -91,9 +93,13 @@ for cb_name, (rv, args, docstring) in cb_docs._asdict().items():
             # End when we hit something like "Notes: " or "void (*this_callback)..."
             next_rv = False
         elif next_rv:
-            rv_desc += line.strip() + " "
+            rv_desc += f"{line.strip()} "
 
-    argnames = "\n        ".join(f"{argtype}: {argname}: {arg_desc[argname] if argname in arg_desc else ''}" for (argtype, argname) in arglist)
+    argnames = "\n        ".join(
+        f"{argtype}: {argname}: {arg_desc.get(argname, '')}"
+        for (argtype, argname) in arglist
+    )
+
 
     # Build docstring
     full_ds = ""
@@ -113,8 +119,8 @@ for cb_name, (rv, args, docstring) in cb_docs._asdict().items():
             record = True
             #full_ds += "\n\n"
 
-        if cb_name+":" in line:
-            start = line.split(cb_name+":")[1]
+        if f"{cb_name}:" in line:
+            start = line.split(f"{cb_name}:")[1]
             if len(start):
                 start+= " "
             full_ds += start
@@ -125,7 +131,7 @@ for cb_name, (rv, args, docstring) in cb_docs._asdict().items():
             record = False
 
         if record:
-            full_ds += line + " "
+            full_ds += f"{line} "
 
     # Now add args and retval
     full_ds += f"""

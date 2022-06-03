@@ -14,6 +14,7 @@ Run with: python3 extract_memstrings.py
 '''
 
 
+
 from sys import argv
 from string import ascii_letters
 from os import remove, path
@@ -25,7 +26,7 @@ panda = Panda(generic=arch)
 
 # Make sure we're always saving a new recording
 recording_name = "mem_test.recording"
-for f in [recording_name+"-rr-nondet.log", recording_name+"-rr-snp"]:
+for f in [f"{recording_name}-rr-nondet.log", f"{recording_name}-rr-snp"]:
     if path.isfile(f): remove(f)
 
 @panda.queue_blocking

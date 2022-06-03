@@ -39,10 +39,7 @@ class QEMUQtestProtocol(object):
             self._sock.listen(1)
 
     def _get_sock(self):
-        if isinstance(self._address, tuple):
-            family = socket.AF_INET
-        else:
-            family = socket.AF_UNIX
+        family = socket.AF_INET if isinstance(self._address, tuple) else socket.AF_UNIX
         return socket.socket(family, socket.SOCK_STREAM)
 
     def connect(self):
@@ -85,12 +82,14 @@ class QEMUQtestMachine(qemu.QEMUMachine):
             name = "qemu-%d" % os.getpid()
         super(QEMUQtestMachine, self).__init__(binary, args, name=name, test_dir=test_dir,
                                                socket_scm_helper=socket_scm_helper)
-        self._qtest_path = os.path.join(test_dir, name + "-qtest.sock")
+        self._qtest_path = os.path.join(test_dir, f"{name}-qtest.sock")
 
     def _base_args(self):
         args = super(QEMUQtestMachine, self)._base_args()
-        args.extend(['-qtest', 'unix:path=' + self._qtest_path,
-                     '-machine', 'accel=qtest'])
+        args.extend(
+            ['-qtest', f'unix:path={self._qtest_path}', '-machine', 'accel=qtest']
+        )
+
         return args
 
     def _pre_launch(self):

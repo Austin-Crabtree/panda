@@ -15,7 +15,7 @@ def driver():
     panda.revert_sync("root") # Revert to snapshot
     panda.copy_to_guest("copy") # Copy directory into guest
     print(panda.run_serial_cmd("chmod +x ./copy/ls")) # Ensure executable
-    panda.load_plugin("trace", {'log': f'example_trace.txt', 'target': 'ls'}) # Trace program named ls
+    panda.load_plugin("trace", {'log': 'example_trace.txt', 'target': 'ls'})
     print(panda.run_serial_cmd("./copy/ls")) # Run ls
 
     panda.end_analysis() # We're finished here

@@ -8,7 +8,7 @@ panda = Panda(generic=arch)
 
 # Make sure we're always saving a new recording
 recording_name = f"filetaint-{arch}.recording"
-for f in [recording_name+"-rr-nondet.log", recording_name+"-rr-snp"]:
+for f in [f"{recording_name}-rr-nondet.log", f"{recording_name}-rr-snp"]:
     if path.isfile(f): remove(f)
 
 success = False

@@ -49,7 +49,7 @@ def bbe(cpu, tb):
 			assert(panda.taint_check_ram(phys_addr)
 				   ), "Final result is not tainted"
 			tq = panda.taint_get_ram(phys_addr)
-			print("Result is tainted. " + str(tq) +" at "+hex(phys_addr))
+			print(f"Result is tainted. {str(tq)} at {hex(phys_addr)}")
 			panda.end_analysis()
 	return None
 

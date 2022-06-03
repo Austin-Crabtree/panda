@@ -58,8 +58,8 @@ if len(args) == 0:
 
 for item in srv.command('qom-list', path=args[0]):
     if item['type'].startswith('child<'):
-        print('%s/' % item['name'])
+        print(f"{item['name']}/")
     elif item['type'].startswith('link<'):
-        print('@%s/' % item['name'])
+        print(f"@{item['name']}/")
     else:
-        print('%s' % item['name'])
+        print(f"{item['name']}")

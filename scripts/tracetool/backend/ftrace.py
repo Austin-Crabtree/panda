@@ -27,9 +27,10 @@ def generate_h_begin(events, group):
 def generate_h(event, group):
     argnames = ", ".join(event.args.names())
     if len(event.args) > 0:
-        argnames = ", " + argnames
+        argnames = f", {argnames}"
 
-    out('        {',
+    out(
+        '        {',
         '            char ftrace_buf[MAX_TRACE_STRLEN];',
         '            int unused __attribute__ ((unused));',
         '            int trlen;',
@@ -42,6 +43,7 @@ def generate_h(event, group):
         '        }',
         name=event.name,
         args=event.args,
-        event_id="TRACE_" + event.name.upper(),
+        event_id=f"TRACE_{event.name.upper()}",
         fmt=event.fmt.rstrip("\n"),
-        argnames=argnames)
+        argnames=argnames,
+    )

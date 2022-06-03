@@ -29,14 +29,12 @@ def parse_message_block(buf):
         if brace_open == brace_close and brace_open > 0:
             break
 
+    # ok
+    before = buf[:start].strip()
     if brace_open == brace_close and brace_open > 0:
-        # ok
-        before = buf[:start].strip()
         message = buf[start:start+i+1].strip()
         after = buf[start+i+1:].strip()
     else:
-        # unbalanced block
-        before = buf[:start].strip()
         message = None
         after = buf[start:].strip()
 
@@ -90,7 +88,7 @@ if __name__ == '__main__':
                 plugin_name = plugin_name.strip()
                 if not len(plugin_name): continue
                 if plugin_name[0] == '#': continue
-                proto_file = os.path.join(plugins_dir, plugin_name, '%s.proto' % plugin_name)
+                proto_file = os.path.join(plugins_dir, plugin_name, f'{plugin_name}.proto')
                 if not os.path.isfile(proto_file):
                     logging.debug('no proto file for plugin %s.', plugin_name)
                     continue

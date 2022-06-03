@@ -107,7 +107,7 @@ def EXIT_USAGE():
 
 def run_and_create_recording():
     global install_dir
-    
+
     parser = argparse.ArgumentParser(usage=USAGE)
 
     parser.add_argument("--perf", action='store_true')
@@ -136,7 +136,7 @@ def run_and_create_recording():
         try:
             env = eval(args.env)
         except:
-            print(("Something went wrong parsing the environment string: [{}]".format(env)))
+            print(f"Something went wrong parsing the environment string: [{env}]")
             EXIT_USAGE()
 
     binary = guest_cmd[0]
@@ -154,22 +154,32 @@ def run_and_create_recording():
         os.makedirs(binary_dir)
 
     install_dir = join(binary_dir, 'cdrom')
-    # if os.path.exists(install_dir):
-        # shutil.rmtree(install_dir)
     if not os.path.exists(install_dir):
         os.mkdir(install_dir)
 
-    if args.qcow:
-        qcow = args.qcow
-    else:
-        qcow = join(dot_dir, arch_data.qcow)
-
+    qcow = args.qcow or join(dot_dir, arch_data.qcow)
     if not os.path.isfile(qcow):
         print(("\nQcow %s doesn't exist. Downloading from moyix. Thanks moyix!\n" % qcow))
-        sp.check_call(["wget", "http://panda.moyix.net/~moyix/" + arch_data.qcow, "-O", qcow])
+        sp.check_call(
+            [
+                "wget",
+                f"http://panda.moyix.net/~moyix/{arch_data.qcow}",
+                "-O",
+                qcow,
+            ]
+        )
+
         for extra_file in arch_data.extra_files or []:
             extra_file_path = join(dot_dir, extra_file)
-            sp.check_call(["wget", "http://panda.moyix.net/~moyix/" + extra_file, "-O", extra_file_path])
+            sp.check_call(
+                [
+                    "wget",
+                    f"http://panda.moyix.net/~moyix/{extra_file}",
+                    "-O",
+                    extra_file_path,
+                ]
+            )
+
 
     # Expand out the dot dir in extra_args if necessary
     if arch_data.extra_args:

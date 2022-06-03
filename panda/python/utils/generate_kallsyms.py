@@ -23,7 +23,7 @@ def run_cmd():
 
     with open("i386_syms.pickle", "wb") as f:
         pickle.dump(kallsyms, f)
-    print("Saved {} symbols".format(len(kallsyms.keys())))
+    print(f"Saved {len(kallsyms.keys())} symbols")
 
     panda.run_monitor_cmd("quit")
 

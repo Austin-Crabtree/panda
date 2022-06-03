@@ -89,10 +89,7 @@ class PyPlugin:
         wasn't passed (arguments passed in bool form (i.e., set but with no value)
         instead of key/value form will also return None).
         '''
-        if arg_name in self.args:
-            return self.args[arg_name]
-
-        return None
+        return self.args[arg_name] if arg_name in self.args else None
 
     def get_arg_bool(self, arg_name):
         '''
@@ -143,8 +140,9 @@ class PyPlugin:
             getattr(getattr(self.ppp, self.__class__.__name__), "ppp_reg_cb")
         except AttributeError:
             def _reg_cb(target_ppp, func):
-                getattr(getattr(self.ppp,
-                    self.__class__.__name__), "ppp_reg_cb_" + target_ppp)(func)
+                getattr(
+                    getattr(self.ppp, self.__class__.__name__), f"ppp_reg_cb_{target_ppp}"
+                )(func)
             self.ppp.add(self.__class__.__name__, "ppp_reg_cb", _reg_cb)
 
     def ppp_run_cb(self, target_ppp, *args):
@@ -152,4 +150,6 @@ class PyPlugin:
         Trigger a previously defind PPP-style callback named `target_ppp` in this plugin with `args`
         Any other pyplugins which have registered a function to run on this callback will be called with `args`.
         '''
-        getattr(getattr(self.ppp, self.__class__.__name__), "ppp_run_cb_" + target_ppp)(*args)
+        getattr(
+            getattr(self.ppp, self.__class__.__name__), f"ppp_run_cb_{target_ppp}"
+        )(*args)

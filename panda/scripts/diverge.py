@@ -59,12 +59,10 @@ def chunks(l, n):
         yield l[i:i + n]
 
 def re_search_int(result_re, result):
-    re_result = re.search(result_re, result)
-    if re_result:
-        return int(re_result.group(1))
-    else:
-        print("re_search_int failed. result:", result)
-        raise RuntimeError("re_search_int")
+    if re_result := re.search(result_re, result):
+        return int(re_result[1])
+    print("re_search_int failed. result:", result)
+    raise RuntimeError("re_search_int")
 
 class Watch(object):
     def render(self, procs): raise NotImplemented()
@@ -94,17 +92,16 @@ class WatchReg(Watch):
         self.reg_num = reg_num
 
     def render(self, proc):
-        return proc.env_ptr("{}[{}]".format(proc.arch.reg_name, self.reg_num)), proc.reg_size
+        return proc.env_ptr(f"{proc.arch.reg_name}[{self.reg_num}]"), proc.reg_size
 
     def __repr__(self):
-        return "WatchReg({})".format(self.reg_num)
+        return f"WatchReg({self.reg_num})"
 
 class RRInstance(object):
     def __init__(self, description, rr_replay, source_pane):
         self.rr_replay = rr_replay
         self.description = description
-        self.spawn_cmd = "{} replay {}".format(
-            shlex.quote(cli_args.rr), shlex.quote(rr_replay))
+        self.spawn_cmd = f"{shlex.quote(cli_args.rr)} replay {shlex.quote(rr_replay)}"
         self.source_pane = source_pane
 
         self.breakpoints = {}
@@ -117,10 +114,10 @@ class RRInstance(object):
     @cached_property
     def arch(self):
         rr_ps = check_output([cli_args.rr, 'ps', self.rr_replay])
-        qemu_regex = r"panda-system-({})".format("|".join(SUPPORTED_ARCHS.keys()))
+        qemu_regex = f'panda-system-({"|".join(SUPPORTED_ARCHS.keys())})'
         re_result = re.search(qemu_regex, rr_ps)
         if not re_result: raise RuntimeError("Unsupported architecture!")
-        return SUPPORTED_ARCHS[re_result.group(1)]
+        return SUPPORTED_ARCHS[re_result[1]]
 
     # Runs in child process.
     def sendline(self, msg):
@@ -134,10 +131,10 @@ class RRInstance(object):
     def __enter__(self):
         self.tempdir_obj = TempDir()
         tempdir = self.tempdir_obj.__enter__()
-        logfile = join(tempdir, self.description + "out")
+        logfile = join(tempdir, f"{self.description}out")
         os.mkfifo(logfile)
-        bash_command = "{} 2>&1 | tee -i --output-error=warn {} | tee -i --output-error=warn {}_log.txt".format(
-            self.spawn_cmd, shlex.quote(logfile), self.description)
+        bash_command = f"{self.spawn_cmd} 2>&1 | tee -i --output-error=warn {shlex.quote(logfile)} | tee -i --output-error=warn {self.description}_log.txt"
+
 
         self.pane = check_output([
             'tmux', 'split-window', '-hdP',
@@ -160,7 +157,7 @@ class RRInstance(object):
     def gdb(self, *args, **kwargs):
         timeout = kwargs.get('timeout', None)
         cmd = " ".join(map(str, args))
-        print("(rr-{}) {}".format(self.description, cmd))
+        print(f"(rr-{self.description}) {cmd}")
         sys.stdout.flush()
 
         expect_prompt = kwargs.get("expect_prompt", "(rr) ")
@@ -235,8 +232,7 @@ class RRInstance(object):
         return self.get_value("&cpus->tqh_first->rr_guest_instr_count")
 
     def condition_instr(self, break_arg, op, instr):
-        self.condition(
-            break_arg, "*(uint64_t *){} {} {}".format(self.instr_count_ptr, op, instr))
+        self.condition(break_arg, f"*(uint64_t *){self.instr_count_ptr} {op} {instr}")
 
     def set_breakpoint_commands(self, break_num):
         self.gdb("commands", break_num, expect_prompt = ">")
@@ -261,8 +257,10 @@ class RRInstance(object):
         step = 1 << 31 if size > (1 << 31) else size
         crc32s = 0
         for start in range(low, low + size, step):
-            crc32s ^= self.get_value("crc32(0, {} + {}, {})".format(
-                            hex(self.ram_ptr), hex(start), hex(step)))
+            crc32s ^= self.get_value(
+                f"crc32(0, {hex(self.ram_ptr)} + {hex(start)}, {hex(step)})"
+            )
+
         return crc32s
 
     @cached_property
@@ -271,21 +269,28 @@ class RRInstance(object):
 
     @cached_property
     def reg_size(self):
-        return self.get_value("sizeof (({}*)0)->{}[0]".format(
-            self.arch.cpu_state_name, self.arch.reg_name))
+        return self.get_value(
+            f"sizeof (({self.arch.cpu_state_name}*)0)->{self.arch.reg_name}[0]"
+        )
 
     @cached_property
     def num_regs(self):
-        return self.get_value("sizeof (({}*)0)->{}".format(
-            self.arch.cpu_state_name, self.arch.reg_name)) // self.reg_size
+        return (
+            self.get_value(
+                f"sizeof (({self.arch.cpu_state_name}*)0)->{self.arch.reg_name}"
+            )
+            // self.reg_size
+        )
 
     def env_value(self, name):
-        return self.get_value("(({}*)cpus->tqh_first->env_ptr)->{}".format(
-            self.arch.cpu_state_name, name))
+        return self.get_value(
+            f"(({self.arch.cpu_state_name}*)cpus->tqh_first->env_ptr)->{name}"
+        )
 
     def env_ptr(self, name):
-        return self.get_value("&(({}*)cpus->tqh_first->env_ptr)->{}".format(
-            self.arch.cpu_state_name, name))
+        return self.get_value(
+            f"&(({self.arch.cpu_state_name}*)cpus->tqh_first->env_ptr)->{name}"
+        )
 
     def checksum(self):
         # NB: Only run when you are at a breakpoint in CPU thread!
@@ -348,7 +353,7 @@ class RRInstance(object):
         run_instr = target_instr - DEBUG_COUNTER_PERIOD
         current_instr = self.instr_count()
         if current_instr < run_instr:
-            print("Moving from {} to {} below {}".format(current_instr, run_instr, target_instr))
+            print(f"Moving from {current_instr} to {run_instr} below {target_instr}")
             self.enable_only("debug_counter")
             self.condition_instr("debug_counter", ">=", run_instr)
             self.cont()
@@ -357,7 +362,7 @@ class RRInstance(object):
         # unfortunately, we might have gone too far above. move back one
         # debug_counter fire if necessary.
         if current_instr > target_instr:
-            print("Moving back to {}".format(target_instr))
+            print(f"Moving back to {target_instr}")
             self.enable_only("debug_counter")
             self.condition_instr("debug_counter", "<=", target_instr)
             self.reverse_cont()
@@ -425,12 +430,11 @@ class All(object):
                 getattr_apply, split_args.items(), chunksize=1)
             # timeout necessary due to http://bugs.python.org/issue8844
             ret = dict(async_obj.get(None))
-            if any([value is not None for value in ret.values()]):
-                if self.unify:
-                    assert values_equal(ret)
-                    return next(iter(ret.values()))
-                else:
+            if any(value is not None for value in ret.values()):
+                if not self.unify:
                     return ret
+                assert values_equal(ret)
+                return next(iter(ret.values()))
 
         return result
 
@@ -517,13 +521,10 @@ class Diverge(object):
         divergences.sort()
         diverged_ranges = []
         for d in divergences:
-            if not diverged_ranges:
+            if not diverged_ranges or diverged_ranges[-1][1] != d:
                 diverged_ranges.append([d, d+4])
-            elif diverged_ranges[-1][1] == d:
-                diverged_ranges[-1][1] += 4
             else:
-                diverged_ranges.append([d, d+4])
-
+                diverged_ranges[-1][1] += 4
         return diverged_ranges
 
     FORWARDS = 0
@@ -586,8 +587,7 @@ class Diverge(object):
     def check_registers(self):
         diverged_registers = []
         for reg in range(self.record.num_regs):
-            reg_values = self.both.env_value("{}[{}]".format(
-                self.record.arch.reg_name, reg))
+            reg_values = self.both.env_value(f"{self.record.arch.reg_name}[{reg}]")
             if not values_equal(reg_values):
                 diverged_registers.append(reg)
         return diverged_registers
@@ -597,7 +597,7 @@ class Diverge(object):
         now_instr = self.sync_precise(target_instr)
         if strict and target_instr != now_instr:
             print("WARNING: Failed to sync exactly. Please fix manually.")
-            print("Trying to go to instr {}.".format(target_instr))
+            print(f"Trying to go to instr {target_instr}.")
             IPython.embed()
         self.both.record_instr_checkpoint()
         return now_instr
@@ -616,7 +616,7 @@ class Diverge(object):
                 watches.append(WatchRAM(low, min(8, high - low)))
                 low += 8
 
-        if len(watches) == 0:
+        if not watches:
             print("WARNING: Couldn't find any watchpoints to set at beginning of ",)
             print("divergence range. What do you want to do?")
             IPython.embed()
@@ -630,10 +630,10 @@ class Diverge(object):
         while True:
             new_watches = []
             for watches_chunk in chunks(watches, 4):
-                num_to_watch_dict = {}
                 self.both.restart_instr(instr_bounds[0])
-                for watch in watches_chunk:
-                    num_to_watch_dict[self.both.same.watch(watch)] = watch
+                num_to_watch_dict = {
+                    self.both.same.watch(watch): watch for watch in watches_chunk
+                }
 
                 instr_counts = self.both.instr_count()
                 while values_equal(instr_counts) \
@@ -657,7 +657,7 @@ class Diverge(object):
 
             if len(watches) == len(new_watches): break
             watches = new_watches
-            assert len(watches) > 0
+            assert watches
 
         return hit_watches
 
@@ -733,9 +733,8 @@ class Diverge(object):
         backtraces = self.both.gdb("backtrace")
 
         def show_backtrace(proc):
-            print("{} stopped at {}".format(proc.description.upper(),
-                                            hit_watches[proc]))
-            print("{} BACKTRACE: ".format(proc.description.upper()))
+            print(f"{proc.description.upper()} stopped at {hit_watches[proc]}")
+            print(f"{proc.description.upper()} BACKTRACE: ")
             print(backtraces[proc])
             print()
 
@@ -797,8 +796,12 @@ if __name__ == '__main__':
             help="Path to the rr directory for the recording replay")
     parser.add_argument("replay_rr",
             help="Path to the rr directory for the replay replay")
-    parser.add_argument("--rr", default=default_rr,
-            help="A path to the rr binary (default={})".format(default_rr))
+    parser.add_argument(
+        "--rr",
+        default=default_rr,
+        help=f"A path to the rr binary (default={default_rr})",
+    )
+
     parser.add_argument("--instr-bounds",
             help=("Instruction bounds where divergence could have occurred."))
     parser.add_argument("--instr-max", type=int,
@@ -809,13 +812,11 @@ if __name__ == '__main__':
 
     # Check arguments
     if not os.path.isfile(cli_args.rr):
-        raise IOError("Cannot find rr bin at {}".format(cli_args.rr))
+        raise IOError(f"Cannot find rr bin at {cli_args.rr}")
     if not os.path.isdir(cli_args.record_rr):
-        raise IOError("Cannot find recording replay at {}".format(
-                cli_args.record_rr))
+        raise IOError(f"Cannot find recording replay at {cli_args.record_rr}")
     if not os.path.isdir(cli_args.replay_rr):
-        raise IOError("Cannot find replay replay at {}".format(
-                cli_args.replay_rr))
+        raise IOError(f"Cannot find replay replay at {cli_args.replay_rr}")
 
     assert cli_args.rr
 

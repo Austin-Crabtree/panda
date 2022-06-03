@@ -4,11 +4,7 @@ import gzip
 import time
 
 def main(logfile, prefix, num_callers=1):
-    if logfile.endswith('.gz'):
-        f = gzip.GzipFile(logfile)
-    else:
-        f = open(logfile)
-
+    f = gzip.GzipFile(logfile) if logfile.endswith('.gz') else open(logfile)
     filemap = {}
 
     for line in f:
@@ -19,7 +15,15 @@ def main(logfile, prefix, num_callers=1):
 
         callers, pc, stack_kind, sid_first, sid_second, addr, n, val = line.strip().rsplit(" ", 7)
         callers = callers.split()
-        fname = prefix + "." + ".".join( callers[-num_callers:] + [pc, stack_kind, sid_first, sid_second] ) + ".dat"
+        fname = (
+            f"{prefix}."
+            + ".".join(
+                callers[-num_callers:]
+                + [pc, stack_kind, sid_first, sid_second]
+            )
+            + ".dat"
+        )
+
         if fname not in filemap:
             filemap[fname] = open(fname,'a')
 

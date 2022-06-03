@@ -36,7 +36,7 @@ def build_all():
 
 
         for minor in minor_releases:
-            downloads = get_filenames(major_url + "/" + minor)
+            downloads = get_filenames(f"{major_url}/{minor}")
 
             for arch in ['i386', 'amd64', 'armhf', 'arm64', 'ppc64']:
                 build_qcow(major, minor, arch)

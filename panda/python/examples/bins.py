@@ -17,6 +17,7 @@ We then use these functions to track dynamic memory regions created and used.
 
 Run with: python3 bins.py
 '''
+
 from pandare import Panda
 from sys import argv
 
@@ -27,7 +28,7 @@ panda = Panda(generic=arch)
 
 from os.path import exists
 
-recording_name = "catetc6"+arch
+recording_name = f"catetc6{arch}"
 if not exists(f"{recording_name}-rr-snp"):
     print("taking recording")
     @panda.queue_blocking
@@ -48,7 +49,7 @@ def address_in_malloc_map(cpu, address):
     if asid in memory_mappings:
         maps = memory_mappings[asid]
         for m in maps:
-            if m <= address and address <=m + maps[m]:
+            if m <= address <= m + maps[m]:
                 return True
     return False
 
@@ -56,10 +57,7 @@ def address_in_malloc_map(cpu, address):
 previous_size = None
 def call_address_return(cpu, tb, h):
     asid = panda.current_asid(cpu)
-    if asid in memory_mappings:
-        mmaps = memory_mappings[asid]
-    else:
-        mmaps = {}
+    mmaps = memory_mappings[asid] if asid in memory_mappings else {}
     ret = panda.arch.get_return_value(cpu)
     mmaps[ret] = previous_size
     memory_mappings[asid] = mmaps

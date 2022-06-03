@@ -26,21 +26,22 @@ def read_elf(vmlinux, task, name, proc_layer):
 	# get program sections
 	vmas = task.mm.get_mmap_iter()
 	elf_vmas = list(filter(lambda vma: name in vma.get_name(vmlinux.context, task), vmas))
-	elf_vma_start = min([vma.vm_start for vma in elf_vmas])
+	elf_vma_start = min(vma.vm_start for vma in elf_vmas)
 	elf_hdr_type = vmlinux.get_type('elf64_hdr')
 	elf_phdr_type = vmlinux.get_type('elf64_phdr')
 	elf_shdr_type = vmlinux.get_type('elf64_shdr')
 
-	symbol_name = vmlinux.symbol_table_name + "!" + "elf64_hdr"
+	symbol_name = f"{vmlinux.symbol_table_name}!elf64_hdr"
 	elf_hdr = vmlinux._context.object(object_type=symbol_name,layer_name=proc_layer_name,offset=elf_vma_start)
 	ident = elf_hdr.e_ident
-	if not (ident[0] == 0x7f and ident[1] == 0x45 and ident[2] == 0x4c and ident[3] == 0x46):
+	if (ident[0] != 0x7F or ident[1] != 0x45 or ident[2] != 0x4C
+	    or ident[3] != 0x46):
 		print("Not an actual ELF. Sorry...")
 		return 0
 
 	sections = {}
 	for i in range(elf_hdr.e_phnum):
-		symbol_name = vmlinux.symbol_table_name + "!" + "elf64_phdr"
+		symbol_name = f"{vmlinux.symbol_table_name}!elf64_phdr"
 		section = vmlinux._context.object(object_type=symbol_name,layer_name=proc_layer_name,offset=elf_vma_start+elf_hdr.e_phoff+(elf_phdr_type.size*i))
 		# borrowed from volatility get_elf
 		start = section.p_vaddr

@@ -32,7 +32,7 @@ def get_arglists(pf):
             # member
             if hasattr(fundec.args,"params"):
                 for arg in fundec.args.params:
-                    if not (arg.name is None):
+                    if arg.name is not None:
                         args[function_name].append(arg.name)
     return args
 
@@ -52,11 +52,11 @@ def split_fun_prototype(prototype_line):
     (a, fn_args_with_types) = foo.groups()
     bar = a.split()
     fn_name = bar[-1]
-    fn_type = " ".join(bar[0:-1])
+    fn_type = " ".join(bar[:-1])
     # carve off ptrs from head of fn name
     while fn_name[0] == '*':
         fn_name = fn_name[1:]
-        fn_type = fn_type + " *"
+        fn_type = f"{fn_type} *"
     return (fn_type, fn_name, fn_args_with_types)
 
 
@@ -150,10 +150,7 @@ def resolve_type(modifiers, name):
         rtype = " ".join(relevant)
     else:
         rtype = tokens[0]
-    if name.startswith('*'):
-        return rtype+'*', name[1:]
-    else:
-        return rtype, name
+    return (f'{rtype}*', name[1:]) if name.startswith('*') else (rtype, name)
 
 def generate_api(interface_file, ext_file, extra_gcc_args):
     functions = []
@@ -189,7 +186,10 @@ def generate_api(interface_file, ext_file, extra_gcc_args):
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
-        sys.stderr.write("usage: %s <interface_file.h> <external_api_file.h> extra gcc args" % sys.argv[0])
+        sys.stderr.write(
+            f"usage: {sys.argv[0]} <interface_file.h> <external_api_file.h> extra gcc args"
+        )
+
         sys.exit(1)
     generate_api(sys.argv[1], sys.argv[2], sys.argv[3:])
 

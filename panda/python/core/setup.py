@@ -36,7 +36,7 @@ def copy_objs():
     biosdir = os.path.join(root_dir, "pc-bios")
     if not os.path.isdir(biosdir):
         raise RuntimeError(f"Could not find PC-bios directory at {biosdir}")
-    shutil.copytree(biosdir, lib_dir+"/pc-bios")
+    shutil.copytree(biosdir, f"{lib_dir}/pc-bios")
 
     # Copy pypanda's include directory (different than core panda's) into a datadir
     pypanda_inc = os.path.join(*[root_dir, "panda", "python", "core", "pandare", "include"])
@@ -49,7 +49,7 @@ def copy_objs():
 
     # Check if we have llvm-support
     with open(os.path.join(*[build_root, 'config-host.mak']), 'r') as cfg:
-        llvm_enabled = True if 'CONFIG_LLVM=y' in cfg.read() else False
+        llvm_enabled = 'CONFIG_LLVM=y' in cfg.read()
 
     # For each arch, copy library, plugins, plog_pb2.py and llvm-helpers
     arches = ['arm', 'aarch64', 'i386', 'x86_64', 'ppc', 'mips', 'mipsel', 'mips64']
@@ -58,8 +58,8 @@ def copy_objs():
         arches = ['arm', 'aarch64', 'i386', 'x86_64', 'ppc', 'mips64']
 
     for arch in arches:
-        libname = "libpanda-"+arch+".so"
-        softmmu = arch+"-softmmu"
+        libname = f"libpanda-{arch}.so"
+        softmmu = f"{arch}-softmmu"
         path      = os.path.join(*[build_root, softmmu, libname])
         plugindir = os.path.join(*[build_root, softmmu, "panda", "plugins"])
         llvm1     = os.path.join(*[build_root, softmmu, "llvm-helpers.bc1"])
@@ -149,24 +149,28 @@ except CalledProcessError:
     print("ERROR: protoc not installed. Install with sudo apt install protoc")
     raise
 
-setup(name='pandare',
-      version='0.1.1.5',
-      description='Python Interface to PANDA',
-      long_description=long_description,
-      long_description_content_type="text/markdown",
-      author='Andrew Fasano, Luke Craig, and Tim Leek',
-      author_email='fasano@mit.edu',
-      url='https://github.com/panda-re/panda/',
-      packages=find_packages(),
-      package_data = { 'pandare': ['data/**/*', # Copy everything (fails?)
-          'data/*-softmmu/libpanda-*.so',     # Libpandas
-          'data/*-softmmu/llvm-helpers*.bc*', # Llvm-helpers
-          'data/*-softmmu/panda/plugins/*',   # All plugins
-          'data/*-softmmu/panda/plugins/**/*',# All plugin files
-          'data/pypanda/include/*.h',         # Includes files
-          'data/pc-bios/*',                   # BIOSes
-          ]},
-      install_requires=[ 'cffi>=1.14.3', 'colorama', 'protobuf=='+pc_version],
-      python_requires='>=3.6',
-      cmdclass={'install': custom_install, 'develop': custom_develop},
-     )
+setup(
+    name='pandare',
+    version='0.1.1.5',
+    description='Python Interface to PANDA',
+    long_description=long_description,
+    long_description_content_type="text/markdown",
+    author='Andrew Fasano, Luke Craig, and Tim Leek',
+    author_email='fasano@mit.edu',
+    url='https://github.com/panda-re/panda/',
+    packages=find_packages(),
+    package_data={
+        'pandare': [
+            'data/**/*',  # Copy everything (fails?)
+            'data/*-softmmu/libpanda-*.so',  # Libpandas
+            'data/*-softmmu/llvm-helpers*.bc*',  # Llvm-helpers
+            'data/*-softmmu/panda/plugins/*',  # All plugins
+            'data/*-softmmu/panda/plugins/**/*',  # All plugin files
+            'data/pypanda/include/*.h',  # Includes files
+            'data/pc-bios/*',  # BIOSes
+        ]
+    },
+    install_requires=['cffi>=1.14.3', 'colorama', f'protobuf=={pc_version}'],
+    python_requires='>=3.6',
+    cmdclass={'install': custom_install, 'develop': custom_develop},
+)

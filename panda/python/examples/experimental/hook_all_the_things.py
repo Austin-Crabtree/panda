@@ -23,7 +23,7 @@ else:
 
 from os.path import exists
 
-recording_name = "curlfile"+arch
+recording_name = f"curlfile{arch}"
 
 if not exists(f"{recording_name}-rr-snp"):
     print("recordig did not exist")

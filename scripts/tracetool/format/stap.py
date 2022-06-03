@@ -29,9 +29,7 @@ RESERVED_WORDS = (
 
 def stap_escape(identifier):
     # Append underscore to reserved keywords
-    if identifier in RESERVED_WORDS:
-        return identifier + '_'
-    return identifier
+    return f'{identifier}_' if identifier in RESERVED_WORDS else identifier
 
 
 def generate(events, backend, group):
@@ -49,13 +47,10 @@ def generate(events, backend, group):
             name=e.name,
             binary=binary())
 
-        i = 1
         if len(e.args) > 0:
-            for name in e.args.names():
+            for i, name in enumerate(e.args.names(), start=1):
                 name = stap_escape(name)
                 out('  %s = $arg%d;' % (name, i))
-                i += 1
-
         out('}')
 
     out()

@@ -108,9 +108,7 @@ class QEMUMonitorProtocol(object):
         try:
             self.__json_read()
         except socket.error as err:
-            if err[0] == errno.EAGAIN:
-                # No data available
-                pass
+            pass
         self.__sock.setblocking(1)
 
         # Wait for new events, if needed.
@@ -122,8 +120,6 @@ class QEMUMonitorProtocol(object):
                 ret = self.__json_read(only_event=True)
             except socket.timeout:
                 raise QMPTimeoutError("Timeout waiting for event")
-            except:
-                raise QMPConnectError("Error while reading from socket")
             if ret is None:
                 raise QMPConnectError("Error while reading from socket")
             self.__sock.settimeout(None)

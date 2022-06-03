@@ -44,7 +44,7 @@ def process_uls(tqs):
     for tq in tqs:
         try:
             u = tq.unique_label_set
-            uls[u.ptr] = [x for x in u.label]
+            uls[u.ptr] = list(u.label)
         except:
             pass
 
@@ -61,13 +61,6 @@ class BasicBlock:
         self.code = code
 
 saveit = True
-
-# this code will let you only optionally read pandalog during
-# debugging (speedy). disabling for commit
-if (len(sys.argv) == 3) and (sys.argv[2] == 'saveit'):
-    saveit = True
-
-
 if saveit:
     print("Reading pandalog")
     with PLogReader(plog) as plr:
@@ -95,16 +88,15 @@ if saveit:
             if m.HasField('tainted_instr'):
                 tqs = m.tainted_instr.taint_query
 
-            if not (tqs is None):
+            if tqs is not None:
                 process_uls(tqs)
                 for tq in tqs:
                     ptr = tq.ptr
                     for l in uls[ptr]:
-                        if not (l in seq):
+                        if l not in seq:
                             seq[l] = [m.pc]
-                        else:
-                            if m.pc != seq[l][-1]:
-                                seq[l].append(m.pc)
+                        elif m.pc != seq[l][-1]:
+                            seq[l].append(m.pc)
 
 
 

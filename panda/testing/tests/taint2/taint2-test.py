@@ -6,7 +6,7 @@ import subprocess as sp
 import tempfile
 
 thisdir = os.path.dirname(os.path.realpath(__file__))
-td = os.path.realpath(thisdir + "/../..")
+td = os.path.realpath(f"{thisdir}/../..")
 sys.path.append(td)
 
 from ptest_utils import *
@@ -16,28 +16,32 @@ sys.path.append(pandascriptsdir)
 from plog_reader import plogiter
 
 # run taint_instr and tainted_branch on file_branch_taint program
-testdir = testingscriptsdir + "/tests/taint2"
-sp.check_call([pandascriptsdir + "/taint_debian.py", testdir + "/file_branch_taint", testdir + "/taint2.input"])
+testdir = f"{testingscriptsdir}/tests/taint2"
+sp.check_call(
+    [
+        f"{pandascriptsdir}/taint_debian.py",
+        f"{testdir}/file_branch_taint",
+        f"{testdir}/taint2.input",
+    ]
+)
+
 
 ulsm = {}
 
 with open("%s/taint2.out" % tmpoutdir, "w") as out:
 
     def print_taint_query(label,pc,tqelist):
-        # a wild stab
-        just_uls = False
-        if (pc < 0x8000000 or pc >= 0x9000000):
-            just_uls = True
+        just_uls = pc < 0x8000000 or pc >= 0x9000000
         if (not just_uls):
-            out.write(label + " " + hex(pc) + " ")
+            out.write(f"{label} {hex(pc)} ")
         for tqe in tqelist:
             if (not just_uls):
                 out.write("( off=%d tcn=%d" % (tqe.offset, tqe.tcn))
             if tqe.HasField("unique_label_set"):
                 uls = tqe.unique_label_set
                 ulsm[uls.ptr] = uls.label
-            ptr = tqe.ptr
             if (not just_uls):
+                ptr = tqe.ptr
                 for l in ulsm[ptr]:
                     out.write(" %d" % l)
                 out.write(")\n")

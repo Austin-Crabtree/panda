@@ -32,7 +32,7 @@ def on_asid_change(env, old_asid, new_asid):
 		print("PID\tPPID\tProcess Name")
 		for task in out:
 			print("{}\t{}\t{}".format(task[0],task[1],task[2]))
-		print("Number of tasks: "+len(out))
+		print(f"Number of tasks: {len(out)}")
 		oldtime = time()
 	return 0
 
@@ -48,7 +48,7 @@ def on_asid_change_slow(env, old_asid, new_asid):
 		a = time()
 		print(panda.run_volatility("linux.pslist.PsList"))
 		ran_in = time() - a
-		print("ran in "+str(ran_in) + " seconds")
+		print(f"ran in {str(ran_in)} seconds")
 		oldtime = time()
 	return 0
 

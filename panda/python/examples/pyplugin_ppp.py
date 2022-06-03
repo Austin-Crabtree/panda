@@ -28,8 +28,8 @@ class Consumer(PyPlugin):
     '''
     def __init__(self, panda):
         self.ppp.Server.ppp_reg_cb('some_f', self.my_f)
-        print(f"Calling Server's do_add(1) (expecting 1): ", self.ppp.Server.do_add(1))
-        print(f"Calling Server's do_add(2) (expecting 3): ", self.ppp.Server.do_add(1))
+        print("Calling Server's do_add(1) (expecting 1): ", self.ppp.Server.do_add(1))
+        print("Calling Server's do_add(2) (expecting 3): ", self.ppp.Server.do_add(1))
 
     def my_f(self, arg):
         print("Consumer my_f runs with arg:", hex(arg))

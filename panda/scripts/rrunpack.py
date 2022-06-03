@@ -14,7 +14,7 @@ RRPACK_MAGIC = "PANDA_RR"
 # 0x20: archive data in .tar.xz format
 
 if len(sys.argv) != 2:
-    print("usage: %s <filename.rr>" % sys.argv[0], file=sys.stderr)
+    print(f"usage: {sys.argv[0]} <filename.rr>", file=sys.stderr)
     sys.exit(1)
 
 infname = sys.argv[1]

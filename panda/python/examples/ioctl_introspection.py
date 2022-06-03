@@ -39,11 +39,11 @@ def run_cmd():
     faked_rets = ioctl_faker.get_forced_returns()
     normal_rets = ioctl_faker.get_unmodified_returns()
 
-    print("{} faked ioctl returns:".format(len(faked_rets)))
+    print(f"{len(faked_rets)} faked ioctl returns:")
     print_list_elems(faked_rets)
     print("\n")
 
-    print("{} normal ioctl returns:".format(len(normal_rets)))
+    print(f"{len(normal_rets)} normal ioctl returns:")
     print_list_elems(normal_rets)
     print("\n")
 

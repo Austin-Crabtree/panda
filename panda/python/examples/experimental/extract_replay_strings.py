@@ -14,14 +14,14 @@ panda = Panda(generic=arch)
 def virt_mem_after_read(cpustate, pc, addr, size, buf):
 	curbuf = ffi.cast("char*", buf)
 	current = panda.get_current_process(cpustate)
-	if current != ffi.NULL:
-		if size >= 5:
-			current_name = ffi.string(current.name)
-			buf_addr = hex(int(ffi.cast("uint64_t", buf)))
-			buf_chr = ffi.cast("uint8_t*", buf)
-			b = "".join([chr(buf_chr[i]) if printable else '' for i in range(size)])
-			progress("Read buf: %s, size: %x, at pc: %x %s" %(buf_addr[2:], size, addr, b))
-	else:
+	if current == ffi.NULL:
 		progress("current is NULL")
+
+	elif size >= 5:
+		current_name = ffi.string(current.name)
+		buf_addr = hex(int(ffi.cast("uint64_t", buf)))
+		buf_chr = ffi.cast("uint8_t*", buf)
+		b = "".join([chr(buf_chr[i]) if printable else '' for i in range(size)])
+		progress("Read buf: %s, size: %x, at pc: %x %s" %(buf_addr[2:], size, addr, b))
 
 panda.run_replay(argv[2])

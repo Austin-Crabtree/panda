@@ -39,7 +39,7 @@ def on_sys_execve_enter(cpu, pc, fname_ptr, argv_ptr, envp):
         except ValueError:
             argv.append(f"(error: 0x{ptr:x})")
 
-    print(get_calltree(cpu) + " => " + ' '.join(argv))
+    print(f"{get_calltree(cpu)} => " + ' '.join(argv))
 
 def get_calltree(cpu):
     # Print the calltree to the current process

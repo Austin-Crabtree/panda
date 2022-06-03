@@ -28,9 +28,9 @@ class QEMUMachine(object):
         if name is None:
             name = "qemu-%d" % os.getpid()
         if monitor_address is None:
-            monitor_address = os.path.join(test_dir, name + "-monitor.sock")
+            monitor_address = os.path.join(test_dir, f"{name}-monitor.sock")
         self._monitor_address = monitor_address
-        self._qemu_log_path = os.path.join(test_dir, name + ".log")
+        self._qemu_log_path = os.path.join(test_dir, f"{name}.log")
         self._popen = None
         self._binary = binary
         self._args = list(args) # Force copy args in case we modify them
@@ -48,9 +48,7 @@ class QEMUMachine(object):
 
     def add_fd(self, fd, fdset, opaque, opts=''):
         '''Pass a file descriptor to the VM'''
-        options = ['fd=%d' % fd,
-                   'set=%d' % fdset,
-                   'opaque=%s' % opaque]
+        options = ['fd=%d' % fd, 'set=%d' % fdset, f'opaque={opaque}']
         if opts:
             options.append(opts)
 
@@ -65,11 +63,14 @@ class QEMUMachine(object):
             print >>sys.stderr, "No path to socket_scm_helper set"
             return -1
         if os.path.exists(self._socket_scm_helper) == False:
-            print >>sys.stderr, "%s does not exist" % self._socket_scm_helper
+            (print >>sys.stderr, f"{self._socket_scm_helper} does not exist")
             return -1
-        fd_param = ["%s" % self._socket_scm_helper,
-                    "%d" % self._qmp.get_sock_fd(),
-                    "%s" % fd_file_path]
+        fd_param = [
+            f"{self._socket_scm_helper}",
+            "%d" % self._qmp.get_sock_fd(),
+            f"{fd_file_path}",
+        ]
+
         devnull = open('/dev/null', 'rb')
         p = subprocess.Popen(fd_param, stdin=devnull, stdout=sys.stdout,
                              stderr=sys.stderr)
@@ -86,9 +87,7 @@ class QEMUMachine(object):
             raise
 
     def get_pid(self):
-        if not self._popen:
-            return None
-        return self._popen.pid
+        return self._popen.pid if self._popen else None
 
     def _load_io_log(self):
         with open(self._qemu_log_path, "r") as fh:
@@ -96,11 +95,10 @@ class QEMUMachine(object):
 
     def _base_args(self):
         if isinstance(self._monitor_address, tuple):
-            moncdev = "socket,id=mon,host=%s,port=%s" % (
-                self._monitor_address[0],
-                self._monitor_address[1])
+            moncdev = f"socket,id=mon,host={self._monitor_address[0]},port={self._monitor_address[1]}"
+
         else:
-            moncdev = 'socket,id=mon,path=%s' % self._monitor_address
+            moncdev = f'socket,id=mon,path={self._monitor_address}'
         return ['-chardev', moncdev,
                 '-mon', 'chardev=mon,mode=control',
                 '-display', 'none', '-vga', 'none']
@@ -137,24 +135,25 @@ class QEMUMachine(object):
 
     def shutdown(self):
         '''Terminate the VM and clean up'''
-        if not self._popen is None:
-            try:
-                self._qmp.cmd('quit')
-                self._qmp.close()
-            except:
-                self._popen.kill()
+        if self._popen is None:
+            return
+        try:
+            self._qmp.cmd('quit')
+            self._qmp.close()
+        except:
+            self._popen.kill()
 
-            exitcode = self._popen.wait()
-            if exitcode < 0:
-                sys.stderr.write('qemu received signal %i: %s\n' % (-exitcode, ' '.join(self._args)))
-            self._load_io_log()
-            self._post_shutdown()
-            self._popen = None
+        exitcode = self._popen.wait()
+        if exitcode < 0:
+            sys.stderr.write('qemu received signal %i: %s\n' % (-exitcode, ' '.join(self._args)))
+        self._load_io_log()
+        self._post_shutdown()
+        self._popen = None
 
     underscore_to_dash = bytes.maketrans(b'_', b'-')
     def qmp(self, cmd, conv_keys=True, **args):
         '''Invoke a QMP command and return the result dict'''
-        qmp_args = dict()
+        qmp_args = {}
         for k in args.keys():
             if conv_keys:
                 qmp_args[k.translate(self.underscore_to_dash)] = args[k]
@@ -192,15 +191,14 @@ class QEMUMachine(object):
                 return True
 
             for key in match:
-                if key in event:
-                    if isinstance(event[key], dict):
-                        if not event_match(event[key], match[key]):
-                            return False
-                    elif event[key] != match[key]:
-                        return False
-                else:
+                if key not in event:
                     return False
 
+                if isinstance(event[key], dict):
+                    if not event_match(event[key], match[key]):
+                        return False
+                elif event[key] != match[key]:
+                    return False
             return True
 
         # Search cached events

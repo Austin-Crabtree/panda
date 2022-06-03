@@ -112,7 +112,7 @@ class QMPShell(qmp.QEMUMonitorProtocol):
         self._completer = None
         self._pretty = pretty
         self._transmode = False
-        self._actions = list()
+        self._actions = []
 
     def __get_address(self, arg):
         """
@@ -144,10 +144,7 @@ class QMPShell(qmp.QEMUMonitorProtocol):
         try:
             readline.read_history_file(self._histfile)
         except Exception as e:
-            if isinstance(e, IOError) and e.errno == errno.ENOENT:
-                # File not found. No problem.
-                pass
-            else:
+            if not isinstance(e, IOError) or e.errno != errno.ENOENT:
                 print("Failed to read history '%s'; %s" % (self._histfile, e))
         atexit.register(self.__save_history)
 
@@ -225,7 +222,7 @@ class QMPShell(qmp.QEMUMonitorProtocol):
                 raise QMPShellError("Unexpected input after close of Transaction sub-shell")
             qmpcmd = { 'execute': 'transaction',
                        'arguments': { 'actions': self._actions } }
-            self._actions = list()
+            self._actions = []
             return qmpcmd
 
         # Nothing to process?
@@ -249,17 +246,15 @@ class QMPShell(qmp.QEMUMonitorProtocol):
         return qmpcmd
 
     def _print(self, qmp):
-        indent = None
-        if self._pretty:
-            indent = 4
+        indent = 4 if self._pretty else None
         jsobj = json.dumps(qmp, indent=indent)
-        print(str(jsobj))
+        print(jsobj)
 
     def _execute_cmd(self, cmdline):
         try:
             qmpcmd = self.__build_cmd(cmdline)
         except Exception as e:
-            print('Error while parsing command line: %s' % e)
+            print(f'Error while parsing command line: {e}')
             print('command format: <command-name> ', end=' ')
             print('[arg-name1=arg1] ... [arg-nameN=argN]')
             return True
@@ -288,9 +283,7 @@ class QMPShell(qmp.QEMUMonitorProtocol):
         print('Connected to QEMU %d.%d.%d\n' % (version['major'],version['minor'],version['micro']))
 
     def get_prompt(self):
-        if self._transmode:
-            return "TRANS> "
-        return "(QEMU) "
+        return "TRANS> " if self._transmode else "(QEMU) "
 
     def read_exec_command(self, prompt):
         """
@@ -303,13 +296,12 @@ class QMPShell(qmp.QEMUMonitorProtocol):
         except EOFError:
             print()
             return False
-        if cmdline == '':
-            for ev in self.get_events():
-                print(ev)
-            self.clear_events()
-            return True
-        else:
+        if cmdline != '':
             return self._execute_cmd(cmdline)
+        for ev in self.get_events():
+            print(ev)
+        self.clear_events()
+        return True
 
     def set_verbosity(self, verbose):
         self._verbose = verbose
@@ -329,17 +321,14 @@ class HMPShell(QMPShell):
                     # Command in the form 'foobar|f' or 'f|foobar', take the
                     # full name
                     opt = name.split('|')
-                    if len(opt[0]) == 1:
-                        name = opt[1]
-                    else:
-                        name = opt[0]
+                    name = opt[1] if len(opt[0]) == 1 else opt[0]
                 self._completer.append(name)
-                self._completer.append('help ' + name) # help completion
+                self._completer.append(f'help {name}')
 
     def __info_completion(self):
         for cmd in self.__cmd_passthrough('info')['return'].split('\r\n'):
             if cmd:
-                self._completer.append('info ' + cmd.split()[1])
+                self._completer.append(f'info {cmd.split()[1]}')
 
     def __other_completion(self):
         # special cases
@@ -360,7 +349,7 @@ class HMPShell(QMPShell):
             # trap the cpu command, it requires special setting
             try:
                 idx = int(cmdline.split()[1])
-                if not 'return' in self.__cmd_passthrough('info version', idx):
+                if 'return' not in self.__cmd_passthrough('info version', idx):
                     print('bad CPU index')
                     return True
                 self.__cpu_index = idx
@@ -378,7 +367,7 @@ class HMPShell(QMPShell):
                 print(resp['return'], end=' ')
         else:
             # Error
-            print('%s: %s' % (resp['error']['class'], resp['error']['desc']))
+            print(f"{resp['error']['class']}: {resp['error']['desc']}")
         return True
 
     def show_banner(self):
@@ -414,10 +403,7 @@ def main():
             else:
                 if qemu is not None:
                     fail_cmdline(arg)
-                if hmp:
-                    qemu = HMPShell(arg)
-                else:
-                    qemu = QMPShell(arg, pretty)
+                qemu = HMPShell(arg) if hmp else QMPShell(arg, pretty)
                 addr = arg
 
         if qemu is None:
@@ -432,7 +418,7 @@ def main():
     except qmp.QMPCapabilitiesError:
         die('Could not negotiate capabilities')
     except qemu.error:
-        die('Could not connect to %s' % addr)
+        die(f'Could not connect to {addr}')
 
     qemu.show_banner()
     qemu.set_verbosity(verbose)

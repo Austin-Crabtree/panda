@@ -94,9 +94,9 @@ def texi_format(doc):
         if line.startswith('| '):
             line = EXAMPLE_FMT(code=line[2:])
         elif line.startswith('= '):
-            line = '@section ' + line[2:]
+            line = f'@section {line[2:]}'
         elif line.startswith('== '):
-            line = '@subsection ' + line[3:]
+            line = f'@subsection {line[3:]}'
         elif re.match(r'^([0-9]*\.) ', line):
             if not inlist:
                 ret += '@enumerate\n'
@@ -138,9 +138,10 @@ def texi_member(member, suffix=''):
     return '@item @code{%s%s%s}%s%s\n' % (
         member.name,
         ': ' if typ else '',
-        typ if typ else '',
+        typ or '',
         ' (optional)' if member.optional else '',
-        suffix)
+        suffix,
+    )
 
 
 def texi_members(doc, what, base, variants, member_func):
@@ -154,7 +155,7 @@ def texi_members(doc, what, base, variants, member_func):
               and not section.member.type.doc_type()):
             values = section.member.type.member_names()
             members_text = ', '.join(['@t{"%s"}' % v for v in values])
-            desc = 'One of ' + members_text + '\n'
+            desc = f'One of {members_text}' + '\n'
         else:
             desc = 'Not documented\n'
         items += member_func(section.member) + desc
@@ -288,7 +289,7 @@ def texi_schema(schema):
 def main(argv):
     """Takes schema argument, prints result to stdout"""
     if len(argv) != 2:
-        print("%s: need exactly 1 argument: SCHEMA" % argv[0], file=sys.stderr)
+        print(f"{argv[0]}: need exactly 1 argument: SCHEMA", file=sys.stderr)
         sys.exit(1)
 
     schema = qapi.QAPISchema(argv[1])

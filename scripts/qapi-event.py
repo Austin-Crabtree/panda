@@ -40,7 +40,7 @@ def gen_param_var(typ):
         ret += sep
         sep = ', '
         if memb.optional:
-            ret += 'has_' + c_name(memb.name) + sep
+            ret += f'has_{c_name(memb.name)}{sep}'
         if memb.type.name == 'str':
             # Cast away const added in gen_params()
             ret += '(char *)'
@@ -100,13 +100,9 @@ def gen_event_send(name, arg_type, boxed):
         ret += mcgen('''
     v = qobject_output_visitor_new(&obj);
 ''')
-        if not arg_type.is_implicit():
-            ret += mcgen('''
-    visit_type_%(c_name)s(v, "%(name)s", &arg, &err);
-''',
-                         name=name, c_name=arg_type.c_name())
-        else:
-            ret += mcgen('''
+        ret += (
+            mcgen(
+                '''
 
     visit_start_struct(v, "%(name)s", NULL, 0, &err);
     if (err) {
@@ -118,7 +114,19 @@ def gen_event_send(name, arg_type, boxed):
     }
     visit_end_struct(v, NULL);
 ''',
-                         name=name, c_name=arg_type.c_name())
+                name=name,
+                c_name=arg_type.c_name(),
+            )
+            if arg_type.is_implicit()
+            else mcgen(
+                '''
+    visit_type_%(c_name)s(v, "%(name)s", &arg, &err);
+''',
+                name=name,
+                c_name=arg_type.c_name(),
+            )
+        )
+
         ret += mcgen('''
     if (err) {
         goto out;
@@ -223,7 +231,7 @@ fdecl.write(mcgen('''
 ''',
                   prefix=prefix))
 
-event_enum_name = c_name(prefix + 'QAPIEvent', protect=False)
+event_enum_name = c_name(f'{prefix}QAPIEvent', protect=False)
 
 schema = QAPISchema(input_file)
 gen = QAPISchemaGenEventVisitor()

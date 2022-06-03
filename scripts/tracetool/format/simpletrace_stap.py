@@ -42,7 +42,7 @@ def generate(events, backend, group):
         '}',
         '')
 
-    for event_id, e in enumerate(events):
+    for e in events:
         if 'disable' in e.properties:
             continue
 
@@ -62,7 +62,7 @@ def generate(events, backend, group):
                     '    } catch {}',
                     '    arg%(name)s_len = strlen(arg%(name)s_str)',
                     name=name)
-                sizes.append('4 + arg%s_len' % name)
+                sizes.append(f'4 + arg{name}_len')
             else:
                 sizes.append('8')
         sizestr = ' + '.join(sizes)
@@ -75,8 +75,13 @@ def generate(events, backend, group):
         for type_, name in e.args:
             name = stap_escape(name)
             if is_string(type_):
-                fields.extend([('4b', 'arg%s_len' % name),
-                               ('.*s', 'arg%s_len, arg%s_str' % (name, name))])
+                fields.extend(
+                    [
+                        ('4b', f'arg{name}_len'),
+                        ('.*s', f'arg{name}_len, arg{name}_str'),
+                    ]
+                )
+
             else:
                 fields.append(('8b', name))
 

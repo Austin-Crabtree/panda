@@ -19,7 +19,10 @@ def progress(msg):
     otherwise just print the message
     """
     if stdout.isatty():
-        print(Fore.GREEN + '[PYPANDA] ' + Fore.RESET + Style.BRIGHT + msg +Style.RESET_ALL)
+        print(
+            f'{Fore.GREEN}[PYPANDA] {Fore.RESET}{Style.BRIGHT}{msg}{Style.RESET_ALL}'
+        )
+
     else:
         print(f"[PYPANDA] {msg}")
 
@@ -29,7 +32,7 @@ def warn(msg):
     otherwise just print the message
     """
     if stdout.isatty():
-        print(Fore.RED + '[PYPANDA] ' + Fore.RESET + Style.BRIGHT + msg +Style.RESET_ALL)
+        print(f'{Fore.RED}[PYPANDA] {Fore.RESET}{Style.BRIGHT}{msg}{Style.RESET_ALL}')
     else:
         print(f"[PYPANDA] {msg}")
 
@@ -81,7 +84,7 @@ def telescope(panda, cpu, val):
             else:
                 break
         if len(str_val) > 2:
-            print("== \"{}\"".format(str_val))
+            print(f'== "{str_val}"')
             return
 
 

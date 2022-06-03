@@ -14,45 +14,50 @@ RRPACK_MAGIC = "PANDA_RR"
 # 0x20: archive data in .tar.xz format
 
 if len(sys.argv) != 2:
-    print("usage: %s <rr_basename>" % sys.argv[0], file=sys.stderr)
+    print(f"usage: {sys.argv[0]} <rr_basename>", file=sys.stderr)
     sys.exit(1)
 
 base = sys.argv[1]
-outfname = base + '.rr'
+outfname = f'{base}.rr'
 
 if os.path.exists(outfname):
-    print("%s already exists; will not overwrite. Aborting." % outfname, file=sys.stderr)
+    print(
+        f"{outfname} already exists; will not overwrite. Aborting.",
+        file=sys.stderr,
+    )
+
     sys.exit(1)
 
 # Get number of instructions
 try:
-    with open(base + '-rr-nondet.log', 'rb') as f:
+    with open(f'{base}-rr-nondet.log', 'rb') as f:
         # num_guest_insns is 64-bit int at offset 16
         f.seek(16)
         num_guest_insns = struct.unpack("<Q", f.read(8))[0]
 except EnvironmentError:
-    print("Failed to open", base + '-rr-nondet.log. Aborting.', file=sys.stderr)
+    print("Failed to open", f'{base}-rr-nondet.log. Aborting.', file=sys.stderr)
     sys.exit(1)
 
 print("Packing RR log %s with %d instructions..." % (base, num_guest_insns))
-outf = open(outfname, 'wb')
-outf.write(RRPACK_MAGIC)
-outf.write(struct.pack("<Q", num_guest_insns))
-outf.write("\0" * 16) # Placeholder for checksum
-outf.flush()
-subprocess.check_call(['tar', 'cJf', '-', base + '-rr-snp', base + '-rr-nondet.log'], stdout=outf)
-outf.close()
+with open(outfname, 'wb') as outf:
+    outf.write(RRPACK_MAGIC)
+    outf.write(struct.pack("<Q", num_guest_insns))
+    outf.write("\0" * 16) # Placeholder for checksum
+    outf.flush()
+    subprocess.check_call(
+        ['tar', 'cJf', '-', f'{base}-rr-snp', f'{base}-rr-nondet.log'],
+        stdout=outf,
+    )
 
 print("Calculating checksum...", end=' ')
-outf = open(outfname, 'r+b')
-outf.seek(0x20)
-m = hashlib.md5()
-while True:
-    data = outf.read(4096)
-    if not data: break
-    m.update(data)
-digest = m.digest()
-outf.seek(0x10)
-outf.write(digest)
-outf.close()
+with open(outfname, 'r+b') as outf:
+    outf.seek(0x20)
+    m = hashlib.md5()
+    while True:
+        data = outf.read(4096)
+        if not data: break
+        m.update(data)
+    digest = m.digest()
+    outf.seek(0x10)
+    outf.write(digest)
 print("Done.")

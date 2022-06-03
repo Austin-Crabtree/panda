@@ -10,6 +10,7 @@ Run with python capture_library.py [qcow]
 NOTE: The big userland yml file is slow to load the first time. Let it do
 it's thing once then it will store a pickle and be fast after that.
 '''
+
 from sys import argv
 from volatility.framework.objects import utility, Pointer
 from pandare import blocking, Panda
@@ -24,11 +25,11 @@ panda = Panda(arch=arch,qcow=image,extra_args=extra_args,expect_prompt=rb"root@u
 elfmapping = None
 symbolfile = "./bionic-server-cloudimg-amd64-userland-symbols.yml"
 
-if os.path.exists(symbolfile+".pickle"):
-    with open(symbolfile+".pickle","rb") as f:
+if os.path.exists(f"{symbolfile}.pickle"):
+    with open(f"{symbolfile}.pickle", "rb") as f:
         print("using pickle to load elfmapping")
         elfmapping = pickle.load(f)
-    
+
 if not elfmapping:
     if not os.path.exists(symbolfile):
         import urllib.request
@@ -39,7 +40,7 @@ if not elfmapping:
     with open(symbolfile,"r") as f:
         print("opening userland symbols")
         elfmapping = yaml.load(f.read(),Loader=yaml.FullLoader)
-        with open(symbolfile+".pickle", "wb") as p:
+        with open(f"{symbolfile}.pickle", "wb") as p:
             print("pickling our symbols")
             pickle.dump(elfmapping,p)
 
@@ -54,12 +55,13 @@ cr3 value.
 def update_process_mapping():
     global mapping
     print("calling update_process_mapping")
-    mapping = {}
     vmlinux = panda.get_volatility_symbols()
     init_task= vmlinux.object_from_symbol("init_task")
-    for task in init_task.tasks:
-        if task and task.pid and task.mm:
-            mapping[task.mm.pgd & 0xffffff] = task.vol["offset"]
+    mapping = {
+        task.mm.pgd & 0xFFFFFF: task.vol["offset"]
+        for task in init_task.tasks
+        if task and task.pid and task.mm
+    }
 
 
 '''
@@ -72,13 +74,15 @@ memory regious between symbols. This might not be entirely true, but it's not
 bad.
 '''
 def print_function_information(task,eip,vmlinux):
-    rel_vma = None
-    for vma in task.mm.get_mmap_iter(): 
-        if vma.vm_start <= eip and vma.vm_end >= eip:
-            rel_vma = vma
-            break
-    if rel_vma:
-        path = rel_vma.get_name(vmlinux.context, task) 
+    if rel_vma := next(
+        (
+            vma
+            for vma in task.mm.get_mmap_iter()
+            if vma.vm_start <= eip and vma.vm_end >= eip
+        ),
+        None,
+    ):
+        path = rel_vma.get_name(vmlinux.context, task)
         offset = eip-rel_vma.vm_start
         if path and path in elfmapping:
             m = elfmapping[path]
@@ -116,8 +120,7 @@ def bbe(env,tb):
     if blocks >= 1000 and not panda.in_kernel(env):
         cr3 = env.env_ptr.cr[3]
         eip = env.env_ptr.eip
-        information = location(cr3,eip)
-        if information:
+        if information := location(cr3, eip):
             print(information)
         blocks = 0
     blocks += 1

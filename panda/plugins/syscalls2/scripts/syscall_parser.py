@@ -156,12 +156,12 @@ class Argument(object):
         self.no = argno
         self.raw = arg.strip()
         self.arch_bits = arch_bits
-        if self.raw == '' or self.raw == 'void':
+        if self.raw in ['', 'void']:
             raise EmptyArgumentError()
         self.struct_name = "n/a"
 
         typesforbits = Argument.types32
-        if (64 == arch_bits):
+        if arch_bits == 64:
             typesforbits = Argument.types64
 
         # parse argument name
@@ -174,7 +174,7 @@ class Argument(object):
         # name sanitization
         self.name = self.name.lstrip('\t *')
         if self.name in typesforbits['reserved']:
-            self.name = '_' + self.name
+            self.name = f'_{self.name}'
         elif self.name == ')':
             self.name = 'fn'
         self.name = self.name.rstrip('[]')
@@ -184,9 +184,25 @@ class Argument(object):
         # this means that e.g. mode_t will also match a umode_t agument
         if Argument.charre.search(self.raw) and not any([self.name.endswith('buf'), self.name == '...', self.name.endswith('[]')]):
             self.type = 'STR_PTR'
-        elif any(['*' in self.raw, '[]' in self.raw, any([x in self.raw for x in typesforbits['ptr']])]) and (not 'struct' in self.raw) and (not '_t' in self.raw):
+        elif (
+            any(
+                [
+                    '*' in self.raw,
+                    '[]' in self.raw,
+                    any(x in self.raw for x in typesforbits['ptr']),
+                ]
+            )
+            and 'struct' not in self.raw
+            and '_t' not in self.raw
+        ):
             self.type = 'BUF_PTR'
-        elif any(['*' in self.raw, '[]' in self.raw, any([x in self.raw for x in typesforbits['ptr']])]) and any(['struct' in self.raw, '_t' in self.raw]):
+        elif any(
+            [
+                '*' in self.raw,
+                '[]' in self.raw,
+                any(x in self.raw for x in typesforbits['ptr']),
+            ]
+        ) and any(['struct' in self.raw, '_t' in self.raw]):
             self.type = 'STRUCT_PTR'
             words = self.raw.split(" ")
             try:
@@ -195,18 +211,18 @@ class Argument(object):
             except:
                 self.struct_name = next(filter(lambda w: w.endswith("_t"), words), self.struct_name)
 
-        # TODO: how to map to C type?
-        #elif ('struct' in self.raw):
-        #    self.type = 'STRUCT'
-        elif any([x in self.raw for x in typesforbits['u64']]):
+        elif any(x in self.raw for x in typesforbits['u64']):
             self.type = 'U64'
-        elif any([x in self.raw for x in typesforbits['s64']]):
+        elif any(x in self.raw for x in typesforbits['s64']):
             self.type = 'S64'
-        elif any([x in self.raw for x in typesforbits['u32']]):
+        elif any(x in self.raw for x in typesforbits['u32']):
             self.type = 'U32'
-        elif any([x in self.raw for x in typesforbits['u16']]):
+        elif any(x in self.raw for x in typesforbits['u16']):
             self.type = 'U32'   # is this correct?
-        elif any([x in self.raw for x in typesforbits['s32']]) and 'unsigned' not in self.raw:
+        elif (
+            any(x in self.raw for x in typesforbits['s32'])
+            and 'unsigned' not in self.raw
+        ):
             self.type = 'S32'
         elif self.raw == 'void':
             self.type = None
@@ -238,7 +254,7 @@ class Argument(object):
             return 'int64_t'
         elif self.type == 'U16':
             return 'uint16_t'
-        assert False, 'Unknown type for argument %s: %s' % (self.name, self.type)
+        assert False, f'Unknown type for argument {self.name}: {self.type}'
 
     def emit_local_declaration(self, ctxp, prefix, unused=True):
         ''' Returns a snippet declaring a local variable for this
@@ -277,7 +293,7 @@ class Argument(object):
         '''
         ctype = self.ctype
         ctype_bits = int(''.join(filter(str.isdigit, ctype)))
-        assert ctype_bits in [32, 64], 'Invalid number of bits for type %s' % ctype
+        assert ctype_bits in {32, 64}, f'Invalid number of bits for type {ctype}'
         ctype_get = 'get_%d' % ctype_bits if ctype.startswith('uint') else 'get_s%d' % ctype_bits
         return '{0} arg{1} = {2}(cpu, {1});'.format(ctype, self.no, ctype_get)
 
@@ -334,7 +350,7 @@ class SysCall(object):
 
         # set properties inferred from prototype
         self.no = int(fields.group(1))
-        self.generic = False if self.no > max_generic_syscall else True
+        self.generic = self.no <= max_generic_syscall
         self.rettype = fields.group(2)
         self.name = fields.group(3)
         self.args_raw = [arg.strip() for arg in fields.group(4).split(',')]
@@ -342,9 +358,9 @@ class SysCall(object):
         # set properties inferred from target context
         self.arch_bits = target_context['arch_conf']['bits']
         panda_noreturn_names = target_context.get('panda_noreturn', {})
-        self.panda_noreturn = True if self.name in panda_noreturn_names else False
+        self.panda_noreturn = self.name in panda_noreturn_names
         panda_doublereturn_names = target_context.get('panda_doublereturn', {})
-        self.panda_double_return = True if self.name in panda_doublereturn_names else False
+        self.panda_double_return = self.name in panda_doublereturn_names
 
         # process raw args
         self.args = []
@@ -370,7 +386,10 @@ class SysCall(object):
         ''' Returns the system call arguments.
             declaration info (type and name) for each arg passed to C++ and C callbacks
         '''
-        return ', '.join(['CPUState* cpu', 'target_ulong pc'] + ['%s %s' % (x.ctype, x.name) for x in self.args])
+        return ', '.join(
+            ['CPUState* cpu', 'target_ulong pc']
+            + [f'{x.ctype} {x.name}' for x in self.args]
+        )
 
 
 ##############################################################################

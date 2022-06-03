@@ -78,7 +78,7 @@ def tail_trace():
         pass
 
 def usage():
-    print('Usage: %s start [buffer_size_kb] | stop | dump | tail' % sys.argv[0])
+    print(f'Usage: {sys.argv[0]} start [buffer_size_kb] | stop | dump | tail')
     print('Control the KVM flight recorder tracing.')
     sys.exit(0)
 

@@ -82,8 +82,8 @@ class QAPIError(Exception):
     def __str__(self):
         loc = '%s:%d' % (self.fname, self.line)
         if self.col is not None:
-            loc += ':%s' % self.col
-        return error_path(self.info) + '%s: %s' % (loc, self.msg)
+            loc += f':{self.col}'
+        return error_path(self.info) + f'{loc}: {self.msg}'
 
 
 class QAPIParseError(QAPIError):
@@ -141,10 +141,7 @@ class QAPIDoc(object):
 
     def has_section(self, name):
         """Return True if we have a section with this name."""
-        for i in self.sections:
-            if i.name == name:
-                return True
-        return False
+        return any(i.name == name for i in self.sections)
 
     def append(self, line):
         """Parse a comment line and add it to the documentation."""
@@ -229,11 +226,12 @@ class QAPIDoc(object):
         if (in_arg or not self.section.name
                 or not self.section.name.startswith('Example')):
             line = line.strip()
-        match = re.match(r'(@\S+:)', line)
-        if match:
-            raise QAPIParseError(self.parser,
-                                 "'%s' not allowed in free-form documentation"
-                                 % match.group(1))
+        if match := re.match(r'(@\S+:)', line):
+            raise QAPIParseError(
+                self.parser,
+                ("'%s' not allowed in free-form documentation" % match[1]),
+            )
+
         # TODO Drop this once the dust has settled
         if (isinstance(self.section, QAPIDoc.ArgSection)
                 and '#optional' in line):
@@ -252,9 +250,9 @@ class QAPIDoc(object):
                                "'Returns:' is only valid for commands")
 
     def check(self):
-        bogus = [name for name, section in self.args.items()
-                 if not section.member]
-        if bogus:
+        if bogus := [
+            name for name, section in self.args.items() if not section.member
+        ]:
             raise QAPISemError(
                 self.info,
                 "The following documented members are not in "
@@ -336,7 +334,7 @@ class QAPISchemaParser(object):
         inf = info
         while inf:
             if incl_abs_fname == os.path.abspath(inf['file']):
-                raise QAPISemError(info, "Inclusion loop for %s" % include)
+                raise QAPISemError(info, f"Inclusion loop for {include}")
             inf = inf['parent']
 
         # skip multiple include of the same file
@@ -348,7 +346,7 @@ class QAPISchemaParser(object):
             else:
                 fobj = open(incl_abs_fname, 'r')
         except IOError as e:
-            raise QAPISemError(info, '%s: %s' % (e.strerror, include))
+            raise QAPISemError(info, f'{e.strerror}: {include}')
         exprs_include = QAPISchemaParser(fobj, previously_included, info)
         self.exprs.extend(exprs_include.exprs)
         self.docs.extend(exprs_include.docs)
@@ -361,15 +359,17 @@ class QAPISchemaParser(object):
                                    "Pragma 'doc-required' must be boolean")
             doc_required = value
         elif name == 'returns-whitelist':
-            if (not isinstance(value, list)
-                    or any([not isinstance(elt, str) for elt in value])):
+            if not isinstance(value, list) or any(
+                not isinstance(elt, str) for elt in value
+            ):
                 raise QAPISemError(info,
                                    "Pragma returns-whitelist must be"
                                    " a list of strings")
             returns_whitelist = value
         elif name == 'name-case-whitelist':
-            if (not isinstance(value, list)
-                    or any([not isinstance(elt, str) for elt in value])):
+            if not isinstance(value, list) or any(
+                not isinstance(elt, str) for elt in value
+            ):
                 raise QAPISemError(info,
                                    "Pragma name-case-whitelist must be"
                                    " a list of strings")
@@ -408,7 +408,7 @@ class QAPISchemaParser(object):
                         # for control characters
                         if ch == 'u':
                             value = 0
-                            for _ in range(0, 4):
+                            for _ in range(4):
                                 ch = self.src[self.cursor]
                                 self.cursor += 1
                                 if ch not in '0123456789abcdefABCDEF':
@@ -605,7 +605,7 @@ def check_name(info, source, name, allow_optional=False,
     membername = name
 
     if not isinstance(name, str):
-        raise QAPISemError(info, "%s requires a string name" % source)
+        raise QAPISemError(info, f"{source} requires a string name")
     if name.startswith('*'):
         membername = name[1:]
         if not allow_optional:
@@ -614,7 +614,7 @@ def check_name(info, source, name, allow_optional=False,
     # Enum members can start with a digit, because the generated C
     # code always prefixes it with the enum name
     if enum_member and membername[0].isdigit():
-        membername = 'D' + membername
+        membername = f'D{membername}'
     # Reserve the entire 'q_' namespace for c_name(), and for 'q_empty'
     # and 'q_obj_*' implicit type names.
     if not valid_name.match(membername) or \
@@ -647,11 +647,9 @@ def check_type(info, source, value, allow_array=False,
     # Check if array type for value is okay
     if isinstance(value, list):
         if not allow_array:
-            raise QAPISemError(info, "%s cannot be an array" % source)
+            raise QAPISemError(info, f"{source} cannot be an array")
         if len(value) != 1 or not isinstance(value[0], str):
-            raise QAPISemError(info,
-                               "%s: array type must contain single type name" %
-                               source)
+            raise QAPISemError(info, f"{source}: array type must contain single type name")
         value = value[0]
 
     # Check if type name for value is okay
@@ -659,22 +657,20 @@ def check_type(info, source, value, allow_array=False,
         if value not in all_names:
             raise QAPISemError(info, "%s uses unknown type '%s'"
                                % (source, value))
-        if not all_names[value] in allow_metas:
+        if all_names[value] not in allow_metas:
             raise QAPISemError(info, "%s cannot use %s type '%s'" %
                                (source, all_names[value], value))
         return
 
     if not allow_dict:
-        raise QAPISemError(info, "%s should be a type name" % source)
+        raise QAPISemError(info, f"{source} should be a type name")
 
     if not isinstance(value, OrderedDict):
-        raise QAPISemError(info,
-                           "%s should be a dictionary or type name" % source)
+        raise QAPISemError(info, f"{source} should be a dictionary or type name")
 
     # value is a dictionary, check that each member is okay
     for (key, arg) in value.items():
-        check_name(info, "Member of %s" % source, key,
-                   allow_optional=allow_optional)
+        check_name(info, f"Member of {source}", key, allow_optional=allow_optional)
         if c_name(key, False) == 'u' or c_name(key, False).startswith('has_'):
             raise QAPISemError(info, "Member of %s uses reserved name '%s'"
                                % (source, key))
@@ -774,12 +770,11 @@ def check_union(expr, info):
 
         # If the discriminator names an enum type, then all members
         # of 'data' must also be members of the enum type.
-        if enum_define:
-            if key not in enum_define['data']:
-                raise QAPISemError(info,
-                                   "Discriminator value '%s' is not found in "
-                                   "enum '%s'"
-                                   % (key, enum_define['enum']))
+        if enum_define and key not in enum_define['data']:
+            raise QAPISemError(info,
+                               "Discriminator value '%s' is not found in "
+                               "enum '%s'"
+                               % (key, enum_define['enum']))
 
     # If discriminator is user-defined, ensure all values are covered
     if enum_define:
@@ -854,7 +849,7 @@ def check_keys(expr_elem, meta, required, optional=[]):
         if key not in required and key not in optional:
             raise QAPISemError(info, "Unknown key '%s' in %s '%s'"
                                % (key, meta, name))
-        if (key == 'gen' or key == 'success-response') and value is not False:
+        if key in ['gen', 'success-response'] and value is not False:
             raise QAPISemError(info,
                                "'%s' of %s '%s' should only use false value"
                                % (key, meta, name))
@@ -921,9 +916,9 @@ def check_exprs(exprs):
     for expr_elem in exprs:
         expr = expr_elem['expr']
         if 'union' in expr and not discriminator_find_enum_define(expr):
-            name = '%sKind' % expr['union']
+            name = f"{expr['union']}Kind"
         elif 'alternate' in expr:
-            name = '%sKind' % expr['alternate']
+            name = f"{expr['alternate']}Kind"
         else:
             continue
         enum_types[name] = {'enum': name}
@@ -1050,9 +1045,7 @@ class QAPISchemaType(QAPISchemaEntity):
         return json2qtype.get(self.json_type())
 
     def doc_type(self):
-        if self.is_implicit():
-            return None
-        return self.name
+        return None if self.is_implicit() else self.name
 
 
 class QAPISchemaBuiltinType(QAPISchemaType):
@@ -1072,7 +1065,7 @@ class QAPISchemaBuiltinType(QAPISchemaType):
 
     def c_param_type(self):
         if self.name == 'str':
-            return 'const ' + self._c_type_name
+            return f'const {self._c_type_name}'
         return self._c_type_name
 
     def json_type(self):
@@ -1144,7 +1137,7 @@ class QAPISchemaArrayType(QAPISchemaType):
         elt_doc_type = self.element_type.doc_type()
         if not elt_doc_type:
             return None
-        return 'array of ' + elt_doc_type
+        return f'array of {elt_doc_type}'
 
     def visit(self, visitor):
         visitor.visit_array_type(self.name, self.info, self.element_type)
@@ -1170,9 +1163,8 @@ class QAPISchemaObjectType(QAPISchemaType):
         self.members = None
 
     def check(self, schema):
-        if self.members is False:               # check for cycles
-            raise QAPISemError(self.info,
-                               "Object %s contains itself" % self.name)
+        if self.members is False:           # check for cycles
+            raise QAPISemError(self.info, f"Object {self.name} contains itself")
         if self.members:
             return
         self.members = False                    # mark as being checked
@@ -1248,11 +1240,12 @@ class QAPISchemaMember(object):
     def check_clash(self, info, seen):
         cname = c_name(self.name)
         if cname.lower() != cname and self.owner not in name_case_whitelist:
-            raise QAPISemError(info,
-                               "%s should not use uppercase" % self.describe())
+            raise QAPISemError(info, f"{self.describe()} should not use uppercase")
         if cname in seen:
-            raise QAPISemError(info, "%s collides with %s" %
-                               (self.describe(), seen[cname].describe()))
+            raise QAPISemError(
+                info, f"{self.describe()} collides with {seen[cname].describe()}"
+            )
+
         seen[cname] = self
 
     def _pretty_owner(self):
@@ -1262,17 +1255,17 @@ class QAPISchemaMember(object):
             # mapping there to create a nice human-readable description
             owner = owner[6:]
             if owner.endswith('-arg'):
-                return '(parameter of %s)' % owner[:-4]
+                return f'(parameter of {owner[:-4]})'
             elif owner.endswith('-base'):
-                return '(base of %s)' % owner[:-5]
+                return f'(base of {owner[:-5]})'
             else:
                 assert owner.endswith('-wrapper')
                 # Unreachable and not implemented
                 assert False
         if owner.endswith('Kind'):
             # See QAPISchema._make_implicit_enum_type()
-            return '(branch of %s)' % owner[:-4]
-        return '(%s of %s)' % (self.role, owner)
+            return f'(branch of {owner[:-4]})'
+        return f'({self.role} of {owner})'
 
     def describe(self):
         return "'%s' %s" % (self.name, self._pretty_owner())
@@ -1396,8 +1389,10 @@ class QAPISchemaCommand(QAPISchemaEntity):
     def check(self, schema):
         if self._arg_type_name:
             self.arg_type = schema.lookup_type(self._arg_type_name)
-            assert (isinstance(self.arg_type, QAPISchemaObjectType) or
-                    isinstance(self.arg_type, QAPISchemaAlternateType))
+            assert isinstance(
+                self.arg_type, (QAPISchemaObjectType, QAPISchemaAlternateType)
+            )
+
             self.arg_type.check(schema)
             if self.boxed:
                 if self.arg_type.is_empty():
@@ -1429,8 +1424,10 @@ class QAPISchemaEvent(QAPISchemaEntity):
     def check(self, schema):
         if self._arg_type_name:
             self.arg_type = schema.lookup_type(self._arg_type_name)
-            assert (isinstance(self.arg_type, QAPISchemaObjectType) or
-                    isinstance(self.arg_type, QAPISchemaAlternateType))
+            assert isinstance(
+                self.arg_type, (QAPISchemaObjectType, QAPISchemaAlternateType)
+            )
+
             self.arg_type.check(schema)
             if self.boxed:
                 if self.arg_type.is_empty():
@@ -1493,20 +1490,7 @@ class QAPISchema(object):
         self._make_array_type(name, None)
 
     def _def_predefineds(self):
-        for t in [('str',    'string',  'char' + pointer_suffix),
-                  ('number', 'number',  'double'),
-                  ('int',    'int',     'int64_t'),
-                  ('int8',   'int',     'int8_t'),
-                  ('int16',  'int',     'int16_t'),
-                  ('int32',  'int',     'int32_t'),
-                  ('int64',  'int',     'int64_t'),
-                  ('uint8',  'int',     'uint8_t'),
-                  ('uint16', 'int',     'uint16_t'),
-                  ('uint32', 'int',     'uint32_t'),
-                  ('uint64', 'int',     'uint64_t'),
-                  ('size',   'int',     'uint64_t'),
-                  ('bool',   'boolean', 'bool'),
-                  ('any',    'value',   'QObject' + pointer_suffix)]:
+        for t in [('str', 'string', f'char{pointer_suffix}'), ('number', 'number',  'double'), ('int',    'int',     'int64_t'), ('int8',   'int',     'int8_t'), ('int16',  'int',     'int16_t'), ('int32',  'int',     'int32_t'), ('int64',  'int',     'int64_t'), ('uint8',  'int',     'uint8_t'), ('uint16', 'int',     'uint16_t'), ('uint32', 'int',     'uint32_t'), ('uint64', 'int',     'uint64_t'), ('size',   'int',     'uint64_t'), ('bool',   'boolean', 'bool'), ('any', 'value', f'QObject{pointer_suffix}')]:
             self._def_builtin_type(*t)
         self.the_empty_object_type = QAPISchemaObjectType(
             'q_empty', None, None, None, [], None)
@@ -1522,13 +1506,13 @@ class QAPISchema(object):
 
     def _make_implicit_enum_type(self, name, info, values):
         # See also QAPISchemaObjectTypeMember._pretty_owner()
-        name = name + 'Kind'   # Use namespace reserved by add_name()
+        name = f'{name}Kind'
         self._def_entity(QAPISchemaEnumType(
             name, info, None, self._make_enum_members(values), None))
         return name
 
     def _make_array_type(self, element_type, info):
-        name = element_type + 'List'   # Use namespace reserved by add_name()
+        name = f'{element_type}List'
         if not self.lookup_type(name):
             self._def_entity(QAPISchemaArrayType(name, info, element_type))
         return name
@@ -1537,7 +1521,7 @@ class QAPISchema(object):
         if not members:
             return None
         # See also QAPISchemaObjectTypeMember._pretty_owner()
-        name = 'q_obj_%s-%s' % (name, role)
+        name = f'q_obj_{name}-{role}'
         if not self.lookup_entity(name, QAPISchemaObjectType):
             self._def_entity(QAPISchemaObjectType(name, info, doc, None,
                                                   members, None))
@@ -1721,7 +1705,7 @@ def camel_to_upper(value):
 def c_enum_const(type_name, const_name, prefix=None):
     if prefix is not None:
         type_name = prefix
-    return camel_to_upper(type_name) + '_' + c_name(const_name, False).upper()
+    return f'{camel_to_upper(type_name)}_{c_name(const_name, False).upper()}'
 
 if hasattr(str, 'maketrans'):
     c_name_trans = str.maketrans('.-', '__')
@@ -1740,47 +1724,114 @@ else:
 # protect=True: 'int' -> 'q_int'; protect=False: 'int' -> 'int'
 def c_name(name, protect=True):
     # ANSI X3J11/88-090, 3.1.1
-    c89_words = set(['auto', 'break', 'case', 'char', 'const', 'continue',
-                     'default', 'do', 'double', 'else', 'enum', 'extern',
-                     'float', 'for', 'goto', 'if', 'int', 'long', 'register',
-                     'return', 'short', 'signed', 'sizeof', 'static',
-                     'struct', 'switch', 'typedef', 'union', 'unsigned',
-                     'void', 'volatile', 'while'])
+    c89_words = {
+        'auto',
+        'break',
+        'case',
+        'char',
+        'const',
+        'continue',
+        'default',
+        'do',
+        'double',
+        'else',
+        'enum',
+        'extern',
+        'float',
+        'for',
+        'goto',
+        'if',
+        'int',
+        'long',
+        'register',
+        'return',
+        'short',
+        'signed',
+        'sizeof',
+        'static',
+        'struct',
+        'switch',
+        'typedef',
+        'union',
+        'unsigned',
+        'void',
+        'volatile',
+        'while',
+    }
+
     # ISO/IEC 9899:1999, 6.4.1
-    c99_words = set(['inline', 'restrict', '_Bool', '_Complex', '_Imaginary'])
+    c99_words = {'inline', 'restrict', '_Bool', '_Complex', '_Imaginary'}
     # ISO/IEC 9899:2011, 6.4.1
-    c11_words = set(['_Alignas', '_Alignof', '_Atomic', '_Generic',
-                     '_Noreturn', '_Static_assert', '_Thread_local'])
+    c11_words = {
+        '_Alignas',
+        '_Alignof',
+        '_Atomic',
+        '_Generic',
+        '_Noreturn',
+        '_Static_assert',
+        '_Thread_local',
+    }
+
     # GCC http://gcc.gnu.org/onlinedocs/gcc-4.7.1/gcc/C-Extensions.html
     # excluding _.*
-    gcc_words = set(['asm', 'typeof'])
+    gcc_words = {'asm', 'typeof'}
     # C++ ISO/IEC 14882:2003 2.11
-    cpp_words = set(['bool', 'catch', 'class', 'const_cast', 'delete',
-                     'dynamic_cast', 'explicit', 'false', 'friend', 'mutable',
-                     'namespace', 'new', 'operator', 'private', 'protected',
-                     'public', 'reinterpret_cast', 'static_cast', 'template',
-                     'this', 'throw', 'true', 'try', 'typeid', 'typename',
-                     'using', 'virtual', 'wchar_t',
-                     # alternative representations
-                     'and', 'and_eq', 'bitand', 'bitor', 'compl', 'not',
-                     'not_eq', 'or', 'or_eq', 'xor', 'xor_eq'])
+    cpp_words = {
+        'bool',
+        'catch',
+        'class',
+        'const_cast',
+        'delete',
+        'dynamic_cast',
+        'explicit',
+        'false',
+        'friend',
+        'mutable',
+        'namespace',
+        'new',
+        'operator',
+        'private',
+        'protected',
+        'public',
+        'reinterpret_cast',
+        'static_cast',
+        'template',
+        'this',
+        'throw',
+        'true',
+        'try',
+        'typeid',
+        'typename',
+        'using',
+        'virtual',
+        'wchar_t',
+        'and',
+        'and_eq',
+        'bitand',
+        'bitor',
+        'compl',
+        'not',
+        'not_eq',
+        'or',
+        'or_eq',
+        'xor',
+        'xor_eq',
+    }
+
     # namespace pollution:
-    polluted_words = set(['unix', 'errno', 'mips', 'sparc'])
+    polluted_words = {'unix', 'errno', 'mips', 'sparc'}
     name = name.translate(c_name_trans)
     if protect and (name in c89_words | c99_words | c11_words | gcc_words
                     | cpp_words | polluted_words):
-        return 'q_' + name
+        return f'q_{name}'
     return name
 
 eatspace = '\033EATSPACE.'
-pointer_suffix = ' *' + eatspace
+pointer_suffix = f' *{eatspace}'
 
 
 def genindent(count):
-    ret = ''
-    for _ in range(count):
-        ret += ' '
-    return ret
+    return ''.join(' ' for _ in range(count))
 
 indent_level = 0
 
@@ -1805,7 +1856,7 @@ def cgen(code, **kwds):
         raw = re.subn(re.compile(r'^.', re.MULTILINE),
                       indent + r'\g<0>', raw)
         raw = raw[0]
-    return re.sub(re.escape(eatspace) + r' *', '', raw)
+    return re.sub(f'{re.escape(eatspace)} *', '', raw)
 
 
 def mcgen(code, **kwds):
@@ -1869,15 +1920,12 @@ typedef enum %(c_name)s {
 ''',
                 c_name=c_name(name))
 
-    i = 0
-    for value in enum_values:
+    for i, value in enumerate(enum_values):
         ret += mcgen('''
     %(c_enum)s = %(i)d,
 ''',
                      c_enum=c_enum_const(name, value, prefix),
                      i=i)
-        i += 1
-
     ret += mcgen('''
 } %(c_name)s;
 ''',
@@ -1898,7 +1946,7 @@ def gen_params(arg_type, boxed, extra):
     ret = ''
     sep = ''
     if boxed:
-        ret += '%s arg' % arg_type.c_param_type()
+        ret += f'{arg_type.c_param_type()} arg'
         sep = ', '
     else:
         assert not arg_type.variants
@@ -1906,9 +1954,8 @@ def gen_params(arg_type, boxed, extra):
             ret += sep
             sep = ', '
             if memb.optional:
-                ret += 'bool has_%s, ' % c_name(memb.name)
-            ret += '%s %s' % (memb.type.c_param_type(),
-                              c_name(memb.name))
+                ret += f'bool has_{c_name(memb.name)}, '
+            ret += f'{memb.type.c_param_type()} {c_name(memb.name)}'
     if extra:
         ret += sep + extra
     return ret
@@ -1921,12 +1968,15 @@ def gen_params(arg_type, boxed, extra):
 def parse_command_line(extra_options='', extra_long_options=[]):
 
     try:
-        opts, args = getopt.gnu_getopt(sys.argv[1:],
-                                       'chp:o:' + extra_options,
-                                       ['source', 'header', 'prefix=',
-                                        'output-dir='] + extra_long_options)
+        opts, args = getopt.gnu_getopt(
+            sys.argv[1:],
+            f'chp:o:{extra_options}',
+            ['source', 'header', 'prefix=', 'output-dir=']
+            + extra_long_options,
+        )
+
     except getopt.GetoptError as err:
-        print("%s: %s" % (sys.argv[0], str(err)), file=sys.stderr)
+        print(f"{sys.argv[0]}: {str(err)}", file=sys.stderr)
         sys.exit(1)
 
     output_dir = ''
@@ -1945,7 +1995,7 @@ def parse_command_line(extra_options='', extra_long_options=[]):
                 sys.exit(1)
             prefix = a
         elif o in ('-o', '--output-dir'):
-            output_dir = a + '/'
+            output_dir = f'{a}/'
         elif o in ('-c', '--source'):
             do_c = True
         elif o in ('-h', '--header'):
@@ -1958,7 +2008,7 @@ def parse_command_line(extra_options='', extra_long_options=[]):
         do_h = True
 
     if len(args) != 1:
-        print("%s: need exactly one argument" % sys.argv[0], file=sys.stderr)
+        print(f"{sys.argv[0]}: need exactly one argument", file=sys.stderr)
         sys.exit(1)
     fname = args[0]
 
@@ -1983,10 +2033,7 @@ def open_output(output_dir, do_c, do_h, prefix, c_file, h_file,
                 raise
 
     def maybe_open(really, name, opt):
-        if really:
-            return open(name, opt)
-        else:
-            return StringIO()
+        return open(name, opt) if really else StringIO()
 
     fdef = maybe_open(do_c, c_file, 'w')
     fdecl = maybe_open(do_h, h_file, 'w')

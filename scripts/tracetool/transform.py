@@ -26,7 +26,7 @@ def _transform_type(type_, trans):
     elif callable(trans):
         return trans(type_)
     else:
-        raise ValueError("Invalid type transformation rule: %s" % trans)
+        raise ValueError(f"Invalid type transformation rule: {trans}")
 
 
 def transform_type(type_, *trans):
@@ -64,11 +64,7 @@ def transform_type(type_, *trans):
 # tcg -> host
 
 def _tcg_2_host(type_):
-    if type_ == "TCGv":
-        # force a fixed-size type (target-independent)
-        return "uint64_t"
-    else:
-        return type_
+    return "uint64_t" if type_ == "TCGv" else type_
 
 TCG_2_HOST = {
     "TCGv_i32": "uint32_t",
@@ -107,10 +103,7 @@ HOST_2_TCG = {
 # tcg -> tcg helper definition
 
 def _tcg_2_helper_def(type_):
-    if type_ == "TCGv":
-        return "target_ulong"
-    else:
-        return type_
+    return "target_ulong" if type_ == "TCGv" else type_
 
 TCG_2_TCG_HELPER_DEF = {
     "TCGv_i32": "uint32_t",

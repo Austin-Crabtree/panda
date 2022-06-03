@@ -78,7 +78,7 @@ n_cols = 120
 
 # Analyze data
 col_size = total_insns / n_cols
-pids = set([x for x,y in time_data]) # really a list of (pid, tid) tuples
+pids = {x for x,y in time_data}
 merged = {} # pid: [(True, 100), False, 9999)
 
 for pid in pids:
@@ -110,6 +110,13 @@ for (pid, tid) in sorted(procinfo, key=lambda v: procinfo[v]['count'], reverse=T
 
 # Render output: Stage 2: ascii art
 ascii_art = {} # (pid, tid): art
+# /while
+# Use on_count and off_count to determine how to label this cell
+
+#□▢▭▯▤▥▦▧▨▩▫▣▪▬▮■
+#" □◍▲◕■"
+#density_map = " ◌○◔◒◕●"
+density_map = " ▂▃▄▅▆▇"
 for (pid, tid), times in merged.items():
     row = ""
     pending = None
@@ -118,7 +125,7 @@ for (pid, tid), times in merged.items():
     # e.g. col_size=10 (True, 8), (False, 1), (True, 10)
     # simplifies to {True:9, False:1} and adds (True:9) to pending
 
-    for cur_col in range(n_cols):
+    for _ in range(n_cols):
         counted = 0
         on_count = 0
         off_count = 0
@@ -152,14 +159,6 @@ for (pid, tid), times in merged.items():
             counted += cnt
 
 
-        # /while
-        # Use on_count and off_count to determine how to label this cell
-
-        #□▢▭▯▤▥▦▧▨▩▫▣▪▬▮■
-        #" □◍▲◕■"
-        #density_map = " ◌○◔◒◕●"
-        density_map = " ▂▃▄▅▆▇"
-                #      01234567
         on_count / col_size
 
         idx = round((on_count/col_size)*(len(density_map)-1))

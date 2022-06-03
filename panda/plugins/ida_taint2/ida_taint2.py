@@ -22,14 +22,14 @@ INST_COLOR = 0x55AAFF
 class ProcessSelectDialog(QDialog):
     def __init__(self, processes):
         super(ProcessSelectDialog, self).__init__()
-        
+
         self.setWindowTitle("Select Process")
-        
+
         btn_ok = QPushButton("OK")
         btn_ok.clicked.connect(self.accept)
         btn_cancel = QPushButton("Cancel")
         btn_cancel.clicked.connect(self.reject)
-        
+
         self.process_table = QTableWidget()
         self.process_table.setColumnCount(2)
         self.process_table.setHorizontalHeaderLabels(("Process Name", "PID"))
@@ -38,16 +38,13 @@ class ProcessSelectDialog(QDialog):
         self.process_table.verticalHeader().setVisible(False)
         self.process_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.process_table.setSelectionMode(QAbstractItemView.SingleSelection)
-        i = 0
-        for p in processes:
+        for i, p in enumerate(processes):
             process_name_item = QTableWidgetItem(p[0])
             process_name_item.setFlags(process_name_item.flags() & ~(Qt.ItemIsEditable))
             self.process_table.setItem(i, 0, process_name_item)
             process_id_item = QTableWidgetItem(str(p[1]))
             process_id_item.setFlags(process_id_item.flags() & ~(Qt.ItemIsEditable))
             self.process_table.setItem(i, 1, process_id_item)
-            i += 1
-
         hbox = QHBoxLayout()
         hbox.addStretch(1)
         hbox.addWidget(btn_ok)
@@ -77,7 +74,7 @@ class ProcessSelectDialog(QDialog):
         return None
 
 def read_semantic_labels(filename):
-    semantic_labels = dict()
+    semantic_labels = {}
     try:
         with open(filename) as f:
             reader = csv.reader(f)
@@ -95,9 +92,9 @@ def skip_csv_header(reader, show_metadata):
     line1 = next(reader, None)
     if (line1[0].startswith("PANDA Build Date")):
         exec_time = next(reader, None)
-        if (show_metadata):
-            idaapi.msg(line1[0] + ":  " + line1[1] + "\n")
-            idaapi.msg(exec_time[0] + ":  " + exec_time[1] + "\n")
+        if show_metadata:
+            idaapi.msg(f"{line1[0]}:  {line1[1]}" + "\n")
+            idaapi.msg(f"{exec_time[0]}:  {exec_time[1]}" + "\n")
         next(reader, None)
         
 def main():
@@ -106,72 +103,68 @@ def main():
         return
 
     processes = set()
-    input_file = open(filename, "r")
-    reader = csv.reader(input_file)
-    
-    skip_csv_header(reader, True)
-    for row in reader:
-        processes.add((row[0], int(row[1])))
-    input_file.close()
+    with open(filename, "r") as input_file:
+        reader = csv.reader(input_file)
 
+        skip_csv_header(reader, True)
+        for row in reader:
+            processes.add((row[0], int(row[1])))
     selected_pid = ProcessSelectDialog.selectProcess(processes)
     # N.B.:  0 is a valid process ID
-    if (None == selected_pid):
+    if selected_pid is None:
         return
 
-    semantic_labels = read_semantic_labels(filename + ".semantic_labels")
+    semantic_labels = read_semantic_labels(f"{filename}.semantic_labels")
 
     snapshot = ida_loader.snapshot_t()
-    snapshot.desc = "Before ida_taint2.py @ %s" % (datetime.datetime.now())
+    snapshot.desc = f"Before ida_taint2.py @ {datetime.datetime.now()}"
     ida_kernwin.take_database_snapshot(snapshot)
 
-    input_file = open(filename, "r")
-    reader = csv.reader(input_file)
-    labels_for_pc = {}
-    skip_csv_header(reader, False)
-    for row in reader:
-        pid = int(row[1])
-        pc = int(row[2], 16)
-        label = int(row[3])
+    with open(filename, "r") as input_file:
+        reader = csv.reader(input_file)
+        labels_for_pc = {}
+        skip_csv_header(reader, False)
+        for row in reader:
+            pid = int(row[1])
+            pc = int(row[2], 16)
+            label = int(row[3])
 
-        try:
-            label = semantic_labels[label]
-        except KeyError:
-            pass
+            try:
+                label = semantic_labels[label]
+            except KeyError:
+                pass
 
-        if pid != selected_pid:
-            continue
-        fn = ida_funcs.get_func(pc)
-        if not fn:
-            continue
-        fn_start = fn.start_ea
-        fn_name = ida_funcs.get_func_name(fn_start)
-        if "TAINTED" not in fn_name:
-            ida_name.set_name(fn_start, "TAINTED_" + fn_name, ida_name.SN_CHECK)
-        fn.color = FUNC_COLOR
-        ida_nalt.set_item_color(pc, INST_COLOR)
-        if pc not in labels_for_pc:
-            labels_for_pc[pc] = set()
-        labels_for_pc[pc].add(label)
-    input_file.close()
-
+            if pid != selected_pid:
+                continue
+            fn = ida_funcs.get_func(pc)
+            if not fn:
+                continue
+            fn_start = fn.start_ea
+            fn_name = ida_funcs.get_func_name(fn_start)
+            if "TAINTED" not in fn_name:
+                ida_name.set_name(fn_start, f"TAINTED_{fn_name}", ida_name.SN_CHECK)
+            fn.color = FUNC_COLOR
+            ida_nalt.set_item_color(pc, INST_COLOR)
+            if pc not in labels_for_pc:
+                labels_for_pc[pc] = set()
+            labels_for_pc[pc].add(label)
     for pc, labels in labels_for_pc.items():
         comment = ida_bytes.get_cmt(pc, 0)
         if not comment:
             comment = ""
-        label_portion = "taint labels = {}".format(list(labels))
+        label_portion = f"taint labels = {list(labels)}"
         if comment == "":
             comment = label_portion
         else:
-            comment += ", " + label_portion
+            comment += f", {label_portion}"
         ida_bytes.set_cmt(pc, comment, 0)        
 
 if __name__ == "__main__":
     try:
         main()
     except ValueError as ve:
-        msg = "Failed to read IDA Taint CSV: %s" % (ve)
+        msg = f"Failed to read IDA Taint CSV: {ve}"
         QMessageBox.critical(None, "Error", msg)
     except Exception as e:
-        msg = "Unexpected error: %s" % (e)
+        msg = f"Unexpected error: {e}"
         QMessageBox.critical(None, "Error", msg)

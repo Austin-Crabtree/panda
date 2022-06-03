@@ -220,12 +220,7 @@ CONFIG_WINDOWS = { s: {
     },
 } for (s, outfile, bits) in WINDOWS_VARIANTS}
 
-##############################################################################
-### Config imported by main module ###########################################
-##############################################################################
-CONFIG = {}
-CONFIG.update(CONFIG_LINUX)
-CONFIG.update(CONFIG_WINDOWS)
+CONFIG = CONFIG_LINUX | CONFIG_WINDOWS
 CONFIG_CLI_OVERRIDES = ['src', 'json_dir', 'extrasigs',]
 
 # vim: set tabstop=4 softtabstop=4 expandtab :

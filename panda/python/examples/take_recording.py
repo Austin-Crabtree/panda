@@ -42,7 +42,7 @@ def record_whoami():
     panda.record_cmd("whoami", recording_name="whoami")
 
     global seen_bbs
-    print("Saw a total of {} BBs while running ls".format(len(seen_bbs)))
+    print(f"Saw a total of {len(seen_bbs)} BBs while running ls")
     panda.end_analysis()
 
 

@@ -87,9 +87,6 @@ def before_block_exec(env,tb):
             nt = 0
         return
 
-    if state == 4:
-        pass # While an async command is queued, don't do anything
-
 panda.disable_tb_chaining()
 panda.queue_async(init)
 panda.run()

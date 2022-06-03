@@ -123,7 +123,7 @@ class Arguments:
 
     def casted(self):
         """List of argument names casted to their type."""
-        return ["(%s)%s" % (type_, name) for type_, name in self._args]
+        return [f"({type_}){name}" for type_, name in self._args]
 
     def transform(self, *trans):
         """Return a new Arguments instance with transformed types.
@@ -131,10 +131,11 @@ class Arguments:
         The types in the resulting Arguments instance are transformed according
         to tracetool.transform.transform_type.
         """
-        res = []
-        for type_, name in self._args:
-            res.append((tracetool.transform.transform_type(type_, *trans),
-                        name))
+        res = [
+            (tracetool.transform.transform_type(type_, *trans), name)
+            for type_, name in self._args
+        ]
+
         return Arguments(res)
 
 
@@ -191,15 +192,10 @@ class Event(object):
         self.event_trans = event_trans
         self.event_exec = event_exec
 
-        if orig is None:
-            self.original = weakref.ref(self)
-        else:
-            self.original = orig
-
+        self.original = weakref.ref(self) if orig is None else orig
         unknown_props = set(self.properties) - self._VALID_PROPS
         if len(unknown_props) > 0:
-            raise ValueError("Unknown properties: %s"
-                             % ", ".join(unknown_props))
+            raise ValueError(f'Unknown properties: {", ".join(unknown_props)}')
         assert isinstance(self.fmt, str) or len(self.fmt) == 2
 
     def copy(self):
@@ -250,7 +246,7 @@ class Event(object):
         if isinstance(self.fmt, str):
             fmt = self.fmt
         else:
-            fmt = "%s, %s" % (self.fmt[0], self.fmt[1])
+            fmt = f"{self.fmt[0]}, {self.fmt[1]}"
         return "Event('%s %s(%s) %s')" % (" ".join(self.properties),
                                           self.name,
                                           self.args,
@@ -311,12 +307,15 @@ def read_events(fobj):
             event_trans.properties += ["tcg-trans"]
             event_trans.fmt = event.fmt[0]
             # ignore TCG arguments
-            args_trans = []
-            for atrans, aorig in zip(
+            args_trans = [
+                atrans
+                for atrans, aorig in zip(
                     event_trans.transform(tracetool.transform.TCG_2_HOST).args,
-                    event.args):
-                if atrans == aorig:
-                    args_trans.append(atrans)
+                    event.args,
+                )
+                if atrans == aorig
+            ]
+
             event_trans.args = Arguments(args_trans)
 
             event_exec = event.copy()
@@ -387,16 +386,16 @@ def generate(events, group, format, backends,
     import tracetool
 
     format = str(format)
-    if len(format) == 0:
+    if not format:
         raise TracetoolError("format not set")
     if not tracetool.format.exists(format):
-        raise TracetoolError("unknown format: %s" % format)
+        raise TracetoolError(f"unknown format: {format}")
 
     if len(backends) == 0:
         raise TracetoolError("no backends specified")
     for backend in backends:
         if not tracetool.backend.exists(backend):
-            raise TracetoolError("unknown backend: %s" % backend)
+            raise TracetoolError(f"unknown backend: {backend}")
     backend = tracetool.backend.Wrapper(backends, format)
 
     import tracetool.backend.dtrace

@@ -12,7 +12,9 @@ from pandare.utils import debug, warn
 
 
 def progress(msg):
-    print(Fore.CYAN + '[asyncthread.py] ' + Fore.RESET + Style.BRIGHT + msg +Style.RESET_ALL)
+    print(
+        f'{Fore.CYAN}[asyncthread.py] {Fore.RESET}{Style.BRIGHT}{msg}{Style.RESET_ALL}'
+    )
 
 class AsyncThread:
     """
@@ -51,7 +53,10 @@ class AsyncThread:
         if not func:
             raise RuntimeError("Queued up an undefined function")
         if not (hasattr(func, "__blocking__")) or not func.__blocking__:
-            raise RuntimeError("Refusing to queue function '{}' without @blocking decorator".format(func.__name__))
+            raise RuntimeError(
+                f"Refusing to queue function '{func.__name__}' without @blocking decorator"
+            )
+
         if internal:
             self._task_queue.put_nowait(func)
         else:
@@ -73,10 +78,9 @@ class AsyncThread:
                 if not internal and self.last_called is not None:
                     if self.empty_at is None:
                         self.empty_at = time()
-                    else:
-                        if time() - self.empty_at > 5 and not self.warned and not self.ending:
-                            warn(f"PANDA finished all the queued functions but emulation was left running. You may have forgotten to call to panda.end_analysis() in the last queued function '{self.last_called}'")
-                            self.warned = True
+                    elif time() - self.empty_at > 5 and not self.warned and not self.ending:
+                        warn(f"PANDA finished all the queued functions but emulation was left running. You may have forgotten to call to panda.end_analysis() in the last queued function '{self.last_called}'")
+                        self.warned = True
                 continue
 
             # Don't interact with guest if it isn't running
@@ -91,11 +95,11 @@ class AsyncThread:
                 break
             try:
                 if debug:
-                    print("Calling {}".format(func.__name__))
+                    print(f"Calling {func.__name__}")
                 # XXX: If running become false while func is running we need a way to kill it
                 func()
             except Exception as e:
-                print("exception {}".format(e))
+                print(f"exception {e}")
                 raise
             finally:
                 task_queue.task_done()
@@ -111,7 +115,7 @@ def test1():
 
     def afunc():
         for x in range(3):
-            print("afunc: t{}".format(x))
+            print(f"afunc: t{x}")
             sleep(1)
 
     afunc.__blocking__ = "placeholder" # Hack to pretend it's decorated

@@ -25,10 +25,16 @@ def record():
     global name
     input_name = "testorig-fuzzed-1028.jpg"
 
-    guest_command = "/mnt/lava-install-public/bin/memdjpeg /mnt/inputs/" + input_name
+    guest_command = (
+        f"/mnt/lava-install-public/bin/memdjpeg /mnt/inputs/{input_name}"
+    )
+
     copy_directory = "/nas/andrew/rode0day/clean/bins/14_jpegS-122_D1V-5D3V-lava-corpus-2018-09-20-17-15-17"
     #panda.run_monitor_cmd("c")
-    panda.record_cmd(guest_command, copy_directory, recording_name=name+".recording")
+    panda.record_cmd(
+        guest_command, copy_directory, recording_name=f"{name}.recording"
+    )
+
     progress("All done with recording")
     #panda.run_monitor_cmd("stop")
     panda.stop_run()
@@ -49,10 +55,10 @@ def prepare_replay(name_):
     panda.load_plugin("file_taint", args={"cache_process_details_on_basic_block": True, "pos": True,
                                           "filename": "/mnt/inputs/"+ input_name, "enable_taint_on_open": True})
     """
-    panda.set_pandalog(name+".plog")
+    panda.set_pandalog(f"{name}.plog")
 
-    progress("\nRun replay {} => {}".format(name+".plog", name+".recording"))
-    panda.begin_replay(name+".recording") # XXX: when replay ends main thread will progress past panda.run()
+    progress("\nRun replay {} => {}".format(f"{name}.plog", f"{name}.recording"))
+    panda.begin_replay(f"{name}.recording")
 
 def analyze():
     global name
@@ -60,16 +66,16 @@ def analyze():
 
     count = 0
     tainted_branch_pcs = set()
-    with PLogReader(name+".plog") as plr:
-        for i, m in enumerate(plr):
+    with PLogReader(f"{name}.plog") as plr:
+        for m in plr:
             if m.HasField('tainted_branch'):
                 #print(m.pc, m.instr)
                 tainted_branch_pcs.add(m.pc)
                 count+=1
     print('\n]')
 
-    print("Total taint branch count = {}".format(count))
-    print("Unique PCs of tainted branches = {}".format(len(tainted_branch_pcs)))
+    print(f"Total taint branch count = {count}")
+    print(f"Unique PCs of tainted branches = {len(tainted_branch_pcs)}")
 
 
 names = ["jpeg1", "jpeg2"]
@@ -85,10 +91,10 @@ for name in names:
 # Then analyze the replays and build plogs
 for name in names:
     #prepare_replay(name)
-    panda.begin_replay(name+".recording") # XXX: when replay ends main thread will progress past panda.run()
+    panda.begin_replay(f"{name}.recording")
     panda.run()
 
 # Finally analyze the plogs
 for name in names:
-    print("ANALYZE {}".format(name))
+    print(f"ANALYZE {name}")
     analyze()

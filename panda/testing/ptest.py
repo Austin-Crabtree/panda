@@ -54,36 +54,36 @@ from ptest_utils import *
 if mode not in ['init', 'setup', 'bless', 'test']:
     exit(USAGE)
 
-testsdir = testingscriptsdir+"/tests"
+testsdir = f"{testingscriptsdir}/tests"
 
 # make sure all enabled tests have min requirements
 # of a setup and a test script
 if debug: progress("checking min requirements")
 for testname in enabled_tests:
-    testdir = testsdir + "/" + testname
+    testdir = f"{testsdir}/{testname}"
     dir_required(testdir)
-    file_required(testdir + "/" + testname + "-setup.py")
-    file_required(testdir + "/" + testname + "-test.py")
+    file_required(f"{testdir}/{testname}-setup.py")
+    file_required(f"{testdir}/{testname}-test.py")
 
 
 def setup(testname):
-    progress ("Setup %s" % testname)
+    progress(f"Setup {testname}")
     try:
         os.chdir(testsdir)
-        run("%s/%s/%s-setup.py" % (testsdir, testname, testname))
-        progress ("Setup %s succeeded" % testname)
+        run(f"{testsdir}/{testname}/{testname}-setup.py")
+        progress(f"Setup {testname} succeeded")
         return True
     except Exception as e:
-        error ("Setup %s failed" % testname)
+        error(f"Setup {testname} failed")
         print(e)
         return False
 
 def bless(testname):
-    progress ("Bless %s" % testname)
+    progress(f"Bless {testname}")
     try:
         # Run test script
-        run("%s/%s/%s-test.py" % (testsdir, testname, testname))
-        
+        run(f"{testsdir}/{testname}/{testname}-test.py")
+
         # Copy output files to blessed directory
         blesseddir = os.path.join(pandaregressiondir, "blessed", testname)
         clear_dir(blesseddir)
@@ -92,19 +92,19 @@ def bless(testname):
 #        print tmpoutdir
 
         for f in files:
-            progress ("Moving blessed file %s" % f)
+            progress(f"Moving blessed file {f}")
             shutil.move(os.path.join(tmpoutdir, f), os.path.join(blesseddir, f))
-        progress ("Bless %s succeeded" % testname)
+        progress(f"Bless {testname} succeeded")
         return True
     except Exception as e:
-        error ("Bless %s failed" % testname)
+        error(f"Bless {testname} failed")
         print(e)
         return False
 
 def test(testname):
-    progress ("Test %s" % testname)
+    progress(f"Test {testname}")
     try:
-        run("%s/%s/%s-test.py" % (testsdir, testname, testname))
+        run(f"{testsdir}/{testname}/{testname}-test.py")
 
         blesseddir = os.path.join(pandaregressiondir, "blessed", testname)
         tmpoutdir = os.path.join(pandaregressiondir, "tmpout", testname)
@@ -113,34 +113,31 @@ def test(testname):
         for f in files:
             tof = os.path.join(tmpoutdir, f)
             if not (file_exists(tof)):
-                error ("tmp out for %s missing: %s" % (testname, tof))
+                error(f"tmp out for {testname} missing: {tof}")
                 return False
 
             bf = os.path.join(blesseddir, f)
             if not (file_exists(bf)):
-                error ("blessed output for %s missing: %s" % (testname, bf))
+                error(f"blessed output for {testname} missing: {bf}")
                 return False
 
-            progress("tof = " + tof)
-            progress("bf =  " + bf)
+            progress(f"tof = {tof}")
+            progress(f"bf =  {bf}")
             if filecmp.cmp(tof, bf):
-                progress ("New output for %s agrees with blessed" % testname)        
-                progress("Test %s succeeded" % testname)
+                progress(f"New output for {testname} agrees with blessed")
+                progress(f"Test {testname} succeeded")
             else:
-                error("New output for %s DISAGREES with blessed" % testname)
-                error("%s != %s" % (tof, bf))
+                error(f"New output for {testname} DISAGREES with blessed")
+                error(f"{tof} != {bf}")
                 return False
         return True
     except Exception as e:
-        error ("Test %s failed" % testname)
+        error(f"Test {testname} failed")
         print(e)
         return False
 
 def do_all(do_fn):
-    res = {}
-    for testname in enabled_tests:
-        res[testname] = do_fn(testname)
-    return res
+    return {testname: do_fn(testname) for testname in enabled_tests}
 
 def run_mode(the_mode, do_fn):
     res = {}
@@ -149,34 +146,32 @@ def run_mode(the_mode, do_fn):
     else:
         for testname in targets:
             res[testname] = do_fn(testname)
-    progress ("Summary results for %s" % the_mode)
+    progress(f"Summary results for {the_mode}")
     all_res = True
-    i = 0
-    for testname in res:
+    for i, testname in enumerate(res):
         if res[testname]:
             progress("  test %d %20s : %s succeeded" % (i, testname, the_mode))
         else:
             error("  test %d %20s : %s FAILED" % (i, testname, the_mode))
         all_res &= res[testname]
-        i += 1
     if all_res:
-        progress("All %s succeeded" % the_mode)
+        progress(f"All {the_mode} succeeded")
     else:
-        error("XXX Some %s failed" % the_mode)
+        error(f"XXX Some {the_mode} failed")
         sys.exit(100)
 
 
 if __name__ == "__main__":
     if mode == 'init':
-        progress("Initializing panda regression test dir in " + pandaregressiondir)
-        progress("Removing " + pandaregressiondir)
+        progress(f"Initializing panda regression test dir in {pandaregressiondir}")
+        progress(f"Removing {pandaregressiondir}")
         shutil.rmtree(pandaregressiondir, ignore_errors=True)
         os.makedirs(pandaregressiondir)
         for dirname in ['qcows', 'replays', 'blessed', 'tmpout', 'misc']:
             for testname in enabled_tests:
                 os.makedirs(os.path.join( pandaregressiondir, dirname, testname))
-                
-        os.chdir(pandaregressiondir + "/qcows")
+
+        os.chdir(f"{pandaregressiondir}/qcows")
         sp.check_call(["wget", "http://panda.moyix.net/~moyix/wheezy_panda2.qcow2", "-O", "wheezy_panda2.qcow2"])
         run_mode('setup', setup)
 

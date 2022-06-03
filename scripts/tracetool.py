@@ -27,7 +27,7 @@ _SCRIPT = ""
 
 def error_opt(msg = None):
     if msg is not None:
-        error_write("Error: " + msg + "\n")
+        error_write(f"Error: {msg}" + "\n")
 
     backend_descr = "\n".join([ "    %-15s %s" % (n, d)
                                 for n,d in tracetool.backend.get_list() ])
@@ -112,7 +112,7 @@ def main(args):
             probe_prefix = arg
 
         else:
-            error_opt("unhandled option: %s" % opt)
+            error_opt(f"unhandled option: {opt}")
 
     if len(arg_backends) == 0:
         error_opt("no backends specified")

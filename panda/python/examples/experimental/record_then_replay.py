@@ -8,7 +8,7 @@ panda = Panda(generic=arch)
 
 # Make sure we're always saving a new recording
 recording_name = "test.recording"
-for f in [recording_name+"-rr-nondet.log", recording_name+"-rr-snp"]:
+for f in [f"{recording_name}-rr-nondet.log", f"{recording_name}-rr-snp"]:
     if path.isfile(f): remove(f)
 
 @blocking
@@ -36,7 +36,7 @@ panda.queue_async(record_nondet) # Take a recording
 panda.run()
 print("======== END RECORDING ========")
 
-print("Observed {} bbs".format(len(orig_blocks)))
+print(f"Observed {len(orig_blocks)} bbs")
 
 print("======== RUN REPLAY ========")
 print("Wait a moment for replay to start...")
@@ -46,8 +46,8 @@ print("======== FINISH REPLAY ========")
 
 orig_block_c = len(orig_blocks)
 repl_block_c = len(replay_blocks)
-rep_in_orig = sum([1 if x in orig_blocks else 0 for x in replay_blocks])
-orig_in_rep = sum([1 if x in replay_blocks else 0 for x in orig_blocks])
+rep_in_orig = sum(1 if x in orig_blocks else 0 for x in replay_blocks)
+orig_in_rep = sum(1 if x in replay_blocks else 0 for x in orig_blocks)
 
 print(f"{orig_block_c} blocks are in original execution.\n{repl_block_c} blocks captured in recording.")
 print(f"{rep_in_orig} of the recorded blocks are in the original execution.\n{orig_in_rep} of the original blocks are in replay")
@@ -66,5 +66,5 @@ panda.queue_async(second_cmd)
 panda.run()
 print("======= DONE =========")
 
-for f in [recording_name+"-rr-nondet.log", recording_name+"-rr-snp"]:
+for f in [f"{recording_name}-rr-nondet.log", f"{recording_name}-rr-snp"]:
     if path.isfile(f): remove(f)

@@ -11,10 +11,7 @@ class TimeoutExpired(Exception): pass
 
 class Expect(object):
     def __init__(self, filelike, logfile=None, quiet=False):
-        if type(filelike) == int:
-            self.fd = filelike
-        else:
-            self.fd = filelike.fileno()
+        self.fd = filelike if type(filelike) == int else filelike.fileno()
         self.poller = select.poll()
         self.poller.register(self.fd, select.POLLIN)
 

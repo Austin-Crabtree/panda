@@ -51,16 +51,13 @@ class Expect(object):
             expectation = expectation.decode()
         self.last_prompt = expectation # approximation
         self.expectation_re = re.compile(expectation)
-        self.expectation_ends_re = re.compile(r'(.*)' + expectation)
+        self.expectation_ends_re = re.compile(f'(.*){expectation}')
 
     def set_logging(self, name):
         self.logfile = open(name, "wb")
 
     def connect(self, filelike):
-        if type(filelike) == int:
-            self.fd = filelike
-        else:
-            self.fd = filelike.fileno()
+        self.fd = filelike if type(filelike) == int else filelike.fileno()
         self.poller = select.poll()
         self.poller.register(self.fd, select.POLLIN)
 
@@ -88,9 +85,7 @@ class Expect(object):
         '''
         Get the message
         '''
-        if len(self.prior_lines):
-            return "\n".join(self.prior_lines)
-        return ""
+        return "\n".join(self.prior_lines) if len(self.prior_lines) else ""
 
     def unansi(self):
         '''
@@ -416,11 +411,7 @@ class Expect(object):
                     # Drop command we sent - note it won't be a direct match with last_cmd because of weird escape codes
                     # which are based on guest line position when printed - i.e., it would only be an exact
                     # match if we knew and included the prompt when the command was run. Let's just always drop it
-                    if len(self.prior_lines) > 1:
-                        self.prior_lines = self.prior_lines[1:]
-                    else:
-                        self.prior_lines = []
-
+                    self.prior_lines = self.prior_lines[1:] if len(self.prior_lines) > 1 else []
                     plaintext = "\n".join(self.prior_lines)
                     self.prior_lines = []
                     return plaintext

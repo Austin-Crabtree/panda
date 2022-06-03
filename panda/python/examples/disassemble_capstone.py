@@ -33,12 +33,13 @@ def my_runcmd():
 def generate_insns(cpu, tb):
     # Disassemble each basic block and store in insn_cache
     if tb.pc in insn_cache: return
-    
+
     code = panda.virtual_memory_read(cpu, tb.pc, tb.size)
 
-    insn_cache[tb.pc] = ""
-    for i in md.disasm(code, tb.pc):
-        insn_cache[tb.pc] += ("0x%x:\t%s\t%s\n" %(i.address, i.mnemonic, i.op_str))
+    insn_cache[tb.pc] = "".join(
+        ("0x%x:\t%s\t%s\n" % (i.address, i.mnemonic, i.op_str))
+        for i in md.disasm(code, tb.pc)
+    )
 
 @panda.cb_after_block_translate(procname="find")
 def before_block_trans(cpu, tb):
@@ -54,4 +55,4 @@ def before_block_exec(cpu, tb):
     executed_pcs.append(pc)
 
 panda.run()
-print("Observed {} distinct basic blocks".format(len(insn_cache)))
+print(f"Observed {len(insn_cache)} distinct basic blocks")

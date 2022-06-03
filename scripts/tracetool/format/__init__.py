@@ -44,12 +44,14 @@ import tracetool
 def get_list():
     """Get a list of (name, description) pairs."""
     res = []
-    modnames = []
-    for filename in os.listdir(tracetool.format.__path__[0]):
-        if filename.endswith('.py') and filename != '__init__.py':
-            modnames.append(filename.rsplit('.', 1)[0])
+    modnames = [
+        filename.rsplit('.', 1)[0]
+        for filename in os.listdir(tracetool.format.__path__[0])
+        if filename.endswith('.py') and filename != '__init__.py'
+    ]
+
     for modname in sorted(modnames):
-        module = tracetool.try_import("tracetool.format." + modname)
+        module = tracetool.try_import(f"tracetool.format.{modname}")
 
         # just in case; should never fail unless non-module files are put there
         if not module[0]:
@@ -71,15 +73,14 @@ def exists(name):
     if len(name) == 0:
         return False
     name = name.replace("-", "_")
-    return tracetool.try_import("tracetool.format." + name)[1]
+    return tracetool.try_import(f"tracetool.format.{name}")[1]
 
 
 def generate(events, format, backend, group):
     if not exists(format):
-        raise ValueError("unknown format: %s" % format)
+        raise ValueError(f"unknown format: {format}")
     format = format.replace("-", "_")
-    func = tracetool.try_import("tracetool.format." + format,
-                                "generate")[1]
+    func = tracetool.try_import(f"tracetool.format.{format}", "generate")[1]
     if func is None:
         raise AttributeError("format has no 'generate': %s" % format)
     func(events, backend, group)

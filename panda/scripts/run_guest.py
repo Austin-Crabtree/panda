@@ -19,10 +19,13 @@ from tempdir import TempDir
 debug = True
 
 def env_to_list(env):
-    return ["{}='{}'".format(k, v) for k, v in env.items()]
+    return [f"{k}='{v}'" for k, v in env.items()]
 
 def progress(msg):
-    print(Fore.GREEN + '[run_guest.py] ' + Fore.RESET + Style.BRIGHT + msg + Style.RESET_ALL)
+    print(
+        f'{Fore.GREEN}[run_guest.py] {Fore.RESET}{Style.BRIGHT}{msg}{Style.RESET_ALL}'
+    )
+
     print()
 
 class Qemu(object):
@@ -42,8 +45,8 @@ class Qemu(object):
     # types a command into the qemu monitor and waits for it to complete
     def run_monitor(self, cmd):
         if debug:
-            print("monitor cmd: [%s]" % cmd)
-        print(Style.BRIGHT + "(qemu)" + Style.RESET_ALL, end=' ')
+            print(f"monitor cmd: [{cmd}]")
+        print(f"{Style.BRIGHT}(qemu){Style.RESET_ALL}", end=' ')
         self.monitor.sendline(cmd)
         self.monitor.expect("(qemu)")
         print()
@@ -52,7 +55,7 @@ class Qemu(object):
     def type_console(self, cmd):
         assert (not self.boot)
         if debug:
-            print("console cmd: [%s]" % cmd)
+            print(f"console cmd: [{cmd}]")
         self.console.send(cmd)
 
     # types a command into the guest os and waits for it to complete
@@ -71,15 +74,24 @@ class Qemu(object):
         if not self.boot:
             serial_path = join(self.tempdir, 'serial')
 
-        qemu_args = [self.qemu_path, self.qcow]
-#        if not self.boot:
-#
-        qemu_args.extend(['-monitor', 'unix:{},server,nowait'.format(monitor_path)])
+        qemu_args = [
+            self.qemu_path,
+            self.qcow,
+            *['-monitor', f'unix:{monitor_path},server,nowait'],
+        ]
+
         if self.boot:
             qemu_args.append('-S')
         else:
-            qemu_args.extend(['-serial', 'unix:{},server,nowait'.format(serial_path),
-                              '-loadvm', self.snapshot])
+            qemu_args.extend(
+                [
+                    '-serial',
+                    f'unix:{serial_path},server,nowait',
+                    '-loadvm',
+                    self.snapshot,
+                ]
+            )
+
         qemu_args.extend(['-display', 'none'])
         qemu_args.extend(self.extra_args)
         if self.rr: qemu_args = ['rr', 'record'] + qemu_args
@@ -154,34 +166,42 @@ def create_recording(qemu_path, qcow, snapshot, command, copy_directory,
     assert not (rr and perf)
 
     recording_path = realpath(recording_path)
-    if not isoname: isoname = copy_directory + '.iso'
+    if not isoname:
+        isoname = f'{copy_directory}.iso'
 
-    with TempDir() as tempdir, \
-            Qemu(qemu_path, qcow, snapshot, tempdir, rr=rr, perf=perf,
-                 expect_prompt=expect_prompt, extra_args=extra_args) as qemu:
+    with TempDir() as tempdir, Qemu(qemu_path, qcow, snapshot, tempdir, rr=rr, perf=perf,
+                     expect_prompt=expect_prompt, extra_args=extra_args) as qemu:
         if os.listdir(copy_directory):
-            progress("Creating ISO {}...".format(isoname))
+            progress(f"Creating ISO {isoname}...")
             make_iso(copy_directory, isoname)
 
             progress("Inserting CD...")
-            qemu.run_monitor("change {} \"{}\"".format(cdrom, isoname))
-            qemu.run_console("mkdir -p {}".format(pipes.quote(copy_directory)))
+            qemu.run_monitor(f'change {cdrom} "{isoname}"')
+            qemu.run_console(f"mkdir -p {pipes.quote(copy_directory)}")
             # Make sure cdrom didn't automount
             # Make sure guest path mirrors host path
-            qemu.run_console("while ! mount /dev/cdrom {}; ".format(pipes.quote(copy_directory)) +
-                        "do sleep 0.3; umount /dev/cdrom; done")
+            qemu.run_console(
+                (
+                    f"while ! mount /dev/cdrom {pipes.quote(copy_directory)}; "
+                    + "do sleep 0.3; umount /dev/cdrom; done"
+                )
+            )
+
 
         # if there is a setup.sh script in the replay/proc_name/cdrom/ folder
         # then run that setup.sh script first (good for scriptst that need to
         # prep guest environment before script runs
-        qemu.run_console("{}/setup.sh &> /dev/null || true".format(pipes.quote(copy_directory)))
+        qemu.run_console(
+            f"{pipes.quote(copy_directory)}/setup.sh &> /dev/null || true"
+        )
+
         # Important that we type command into console before recording starts and only
         # hit enter once we've started the recording.
         progress("Running command inside guest.")
         qemu.type_console(subprocess.list2cmdline(env_to_list(env) + command))
 
         # start PANDA recording
-        qemu.run_monitor("begin_record \"{}\"".format(recording_path))
+        qemu.run_monitor(f'begin_record "{recording_path}"')
         qemu.run_console(timeout=1200)
 
         # end PANDA recording
@@ -189,23 +209,20 @@ def create_recording(qemu_path, qcow, snapshot, command, copy_directory,
         qemu.run_monitor("end_record")
 
 def create_boot_recording(qemu_path, qcow, recording_path, boot_time):
-    DEVNULL = open(os.devnull, "w")
+    with open(os.devnull, "w") as DEVNULL:
+        recording_path = realpath(recording_path)
 
-    recording_path = realpath(recording_path)
+        with TempDir() as tempdir, Qemu(qemu_path, qcow, None, tempdir, \
+                                            boot=True, rr=None) as qemu:
 
-    with TempDir() as tempdir, Qemu(qemu_path, qcow, None, tempdir, \
-                                    boot=True, rr=None) as qemu:
-
-        # start PANDA recording
-        qemu.run_monitor("begin_record \"{}\"".format(recording_path))
-        qemu.run_monitor("cont")
-        # wait for this long
-        time.sleep(boot_time)
-        # end PANDA recording
-        progress("Ending recording...")
-        qemu.run_monitor("end_record")
-
-    DEVNULL.close()
+                    # start PANDA recording
+            qemu.run_monitor(f'begin_record "{recording_path}"')
+            qemu.run_monitor("cont")
+            # wait for this long
+            time.sleep(boot_time)
+            # end PANDA recording
+            progress("Ending recording...")
+            qemu.run_monitor("end_record")
 
 
 if __name__ == '__main__':

@@ -19,7 +19,7 @@ class _DotGetter(object):
         self.data[k] = v
 
     def __str__(self):
-        return str([x for x in self.data.keys()])
+        return str(list(self.data.keys()))
 
     def __getattr__(self, name):
         raise NotImplementedError("Subclass must implement this virtual method")
@@ -173,7 +173,7 @@ class PyPluginManager:
 
         for pluginclass in pluginclasses:
             if not isinstance(pluginclass, type) or not issubclass(pluginclass, PyPlugin):
-                raise ValueError(f"pluginclass must be an uninstantiated subclass of PyPlugin")
+                raise ValueError("pluginclass must be an uninstantiated subclass of PyPlugin")
 
             # If PyPlugin is in scope it should not be treated as a plugin
             if pluginclass is PyPlugin:
@@ -203,7 +203,7 @@ class PyPluginManager:
 
                 bp = self.blueprint(name, __name__, template_folder=template_dir)
                 self.plugins[name].webserver_init(bp)
-                self.app.register_blueprint(bp, url_prefix="/" + name)
+                self.app.register_blueprint(bp, url_prefix=f"/{name}")
 
     def load_all(self, plugin_file, args=None, template_dir=None):
         '''
@@ -226,11 +226,7 @@ class PyPluginManager:
             self.load(cls, args, template_dir)
 
     def unload(self, pluginclass, do_del=True):
-        if isinstance(pluginclass, str):
-            name = pluginclass
-        else:
-            name = pluginclass.__name__
-
+        name = pluginclass if isinstance(pluginclass, str) else pluginclass.__name__
         if callable(getattr(self.plugins[name], "uninit", None)):
             self.plugins[name].uninit()
 
@@ -243,18 +239,12 @@ class PyPluginManager:
         self.plugins.clear()
 
     def is_loaded(self, pluginclass):
-        if isinstance(pluginclass, str):
-            name = pluginclass
-        else:
-            name = pluginclass.__name__
+        name = pluginclass if isinstance(pluginclass, str) else pluginclass.__name__
         return name in self.plugins
 
     def get_plugin(self, pluginclass):
         # Lookup name
-        if isinstance(pluginclass, str):
-            name = pluginclass
-        else:
-            name = pluginclass.__name__
+        name = pluginclass if isinstance(pluginclass, str) else pluginclass.__name__
         if not self.is_loaded(pluginclass, name):
             raise ValueError(f"Plugin {name} is not loaded")
         return self.plugins[name]
@@ -293,19 +283,16 @@ if __name__ == '__main__':
         def __init__(self, panda):
             path = self.get_arg('path')
             print(f"path = {path}")
-            global _test_class_init_ran, _test_get_arg_foo, \
-                   _test_print_hello_false, _test_print_hello2_true
+            global _test_class_init_ran, _test_get_arg_foo
             _test_class_init_ran = True
             _test_get_arg_foo = path == "/foo"
 
-            should_print_hello = self.get_arg_bool('should_print_hello')
-            if should_print_hello:
+            if should_print_hello := self.get_arg_bool('should_print_hello'):
                 print("Hello!")
             else:
                 _test_print_hello_false = True
 
-            should_print_hello2 = self.get_arg_bool('should_print_hello2')
-            if should_print_hello2:
+            if should_print_hello2 := self.get_arg_bool('should_print_hello2'):
                 _test_print_hello2_true = True
 
 

@@ -21,10 +21,9 @@ def bb_after_exec_usr(cpu, tb, exit_code):
     global unique_bbs
     if panda.in_kernel(cpu) or panda.in_kernel_code_linux(cpu) or exit_code > 1:
         return
-    else:
-        assert(tb.pc < 0xc0000000)          # Not 32-bit Linux kernel space
-        assert(tb.pc < 0x00ffffffffffffff)  # Not 64-bit Linux kernel space
-        unique_bbs.add(tb.pc)
+    assert(tb.pc < 0xc0000000)          # Not 32-bit Linux kernel space
+    assert(tb.pc < 0x00ffffffffffffff)  # Not 64-bit Linux kernel space
+    unique_bbs.add(tb.pc)
 
 @panda.queue_blocking
 def run_cmd():

@@ -25,17 +25,14 @@ In particular, it removes class item identifiers
 def line_passes(line):
 	# error messages and class identifiers
 	banned = ["die__", "public:", "private:", "protected:","DW_AT_<"]
-	for i in banned:
-		if i in line:
-			return False
-	return True
+	return all(i not in line for i in banned)
 
 '''
 Here we strip enums out of classes.
 We do this because enums defined in classes cant be parsed by cffi.
 '''
 def extract_enum(i):
-	lines = [i for i in i.split("\n")]
+	lines = list(i.split("\n"))
 	out_lines = []
 	enums = []
 	in_enum= -1
@@ -59,7 +56,7 @@ problematic structs. Usually those structs are actually classes
 represented as structs.
 ''' 
 def strip_struct(output):
-	lines = [line for line in output.split("\n")]
+	lines = list(output.split("\n"))
 	for i in range(len(lines))[1:-1]:
 		if len(lines[i].strip()) > 0:
 			precomments = lines[i].split("/*")[0]
@@ -80,7 +77,9 @@ Uses pahole to generate struct.
 '''
 def get_struct(name, pahole_path, elf_file):
 	from subprocess import getoutput
-	out =getoutput(pahole_path+" --classes_as_structs --suppress_aligned_attribute --suppress_force_paddings --class_name="+name+ " "+elf_file )
+	out = getoutput(
+	    f"{pahole_path} --classes_as_structs --suppress_aligned_attribute --suppress_force_paddings --class_name={name} {elf_file}"
+	)
 	# object refers to a class-like object I didn't want to deal with
 	problematic = ["Object"] 
 
@@ -94,7 +93,7 @@ def get_struct(name, pahole_path, elf_file):
 	if not out.strip():
 		pdb.set_trace()
 		print("empty")
-	print("struct "+name)
+	print(f"struct {name}")
 	print(out)
 	return out
 
@@ -143,9 +142,11 @@ class Struct(object):
 			self.circular_depends.append(dependency)
 	
 	def __str__(self):
-		content = "struct "+self.name+";\ntypedef struct "+self.name +" " + self.name + ";\n"
+		content = (f"struct {self.name}" + ";\ntypedef struct " + self.name + " " +
+		           self.name + ";\n")
 		for item in self.circular_depends:
-			content += "struct "+item.name+";\ntypedef struct "+item.name + " "+item.name +";\n"
+			content += (f"struct {item.name}" + ";\ntypedef struct " + item.name + " " +
+			            item.name + ";\n")
 		content += self.content + "\n"
 		return content
 			
@@ -234,14 +235,12 @@ class HeaderFile(object):
 			a = "".join(lst)
 			ret = name_without_ptr(a.split(")(")[0].split("(*")[0])
 			args = [name_without_ptr(i) for i in a.split(")(")[1].split(",")]
-					
-			if not is_basic_type(ret,self.base) and ret not in self.structs:
+
+			if not is_basic_type(ret, self.base) and ret not in self.structs:
 				return ret
-			else:
-				for i in range(len(args)):
-					if args[i] not in self.structs:
-						if not is_basic_type(args[i],self.base):
-							return args[i]
+			for i in range(len(args)):
+				if args[i] not in self.structs and not is_basic_type(args[i], self.base):
+					return args[i]
 		bad = ["const"]
 		if lst[0] in bad:
 			return lst[1]
@@ -296,7 +295,7 @@ class HeaderFile(object):
 			self.ffi = FFI()
 			self.ffi.cdef(str(self))
 			cpustate = self.ffi.new("CPUState*")
-			self.ffi.new("CPU"+self.arch+"State*")
+			self.ffi.new(f"CPU{self.arch}State*")
 			self.ffi.new("TranslationBlock*")
 			self.ffi.new("MachineState*")
 			self.ffi.new("Monitor*")
@@ -307,9 +306,12 @@ class HeaderFile(object):
 
 def remove_empty_structs(data):
 	from re import sub, M
-	# looks for empty structs and replaces them with a tab
-	foutput = sub(r"struct([\n\r\s\t]){\s*(\n\t)*\s*}([\n\r\s\t])[a-zA-Z0-9_]+;","\t",data,M)
-	return foutput
+	return sub(
+	    r"struct([\n\r\s\t]){\s*(\n\t)*\s*}([\n\r\s\t])[a-zA-Z0-9_]+;",
+	    "\t",
+	    data,
+	    M,
+	)
 
 
 
@@ -319,7 +321,7 @@ This function attempts to create, validate, and write a header file based on the
 def generate_config(arch, bits, pahole_path, elf_file):
 	# a bunch of host assumptions. Including a blatantly wrong one. Though I can't seem to fix it.
 	assumptions = open("./assumptions.h","r").read()
-	base = "typedef uint"+str(bits)+"_t target_ulong;\n"+assumptions
+	base = f"typedef uint{str(bits)}" + "_t target_ulong;\n" + assumptions
 	global header
 	header = HeaderFile(arch, base, pahole_path, elf_file)
 	# the truth of the matter is we don't need 1000s of QEMU structs. We need 3.
@@ -332,40 +334,40 @@ def generate_config(arch, bits, pahole_path, elf_file):
 
 	# correction to make this not architecture neutral
 	CPUState = header.structs["CPUState"]
-	CPUState.content = CPUState.content.replace("void *                     env_ptr;", "CPU"+arch+"State *                     env_ptr;")
+	CPUState.content = CPUState.content.replace(
+	    "void *                     env_ptr;",
+	    f"CPU{arch}State *                     env_ptr;",
+	)
 	previous = "CPUState"
 	loopcounter = 0
-	while True:
-		valid = header.validate()
-		if valid:
-			missing, line = valid
-			if missing == previous:
-				loopcounter += 1
-				print("Looks like you're in a loop!")
-				if loopcounter >= 10:
-					pdb.set_trace()
-			else:
-				loopcounter = 0
-			previous = missing
-			print("It seems to have a dependency from "+header.lines[line].name +" on " + missing)
-			if missing not in header.structs: # truly missing
-				print("adding "+missing)
-				header.add_struct(missing)
-#			print("adding dependency")
-			header.lines[line].add_dependency(header.structs[missing])
+	while valid := header.validate():
+		missing, line = valid
+		if missing == previous:
+			loopcounter += 1
+			print("Looks like you're in a loop!")
+			if loopcounter >= 10:
+				pdb.set_trace()
 		else:
-			break
-	
-	OUT_FILE_NAME = "/output/panda_datatypes_"+arch+"_"+str(bits)+".h"
+			loopcounter = 0
+		previous = missing
+		print(
+		    f"It seems to have a dependency from {header.lines[line].name} on {missing}"
+		)
+		if missing not in header.structs: # truly missing
+			print(f"adding {missing}")
+			header.add_struct(missing)
+#			print("adding dependency")
+		header.lines[line].add_dependency(header.structs[missing])
+	OUT_FILE_NAME = f"/output/panda_datatypes_{arch}_{str(bits)}.h"
 	with open(OUT_FILE_NAME,"w") as f:
 		output = header.render()
 		output_minus_empty = remove_empty_structs(output)
 		f.write(output_minus_empty)
-	print("Finished. Content written to "+OUT_FILE_NAME)
+	print(f"Finished. Content written to {OUT_FILE_NAME}")
 
 comptries = 0
 
 for arch in archs:
 	generate_config(arch=arch[0], bits=arch[1], pahole_path=pahole_path, elf_file=panda_base+arch[2])
 
-print("Number of compilation tries: " + str(comptries))
+print(f"Number of compilation tries: {comptries}")

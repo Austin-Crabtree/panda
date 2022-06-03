@@ -17,7 +17,7 @@ panda = Panda(generic=arch)
 def do_stuff():
     panda.revert_sync("root")
     for command in ["ls -la", "whoami", "sleep 1", "uname -r"]:
-        print(panda.run_serial_cmd("LD_SHOW_AUXV=1 "+command))
+        print(panda.run_serial_cmd(f"LD_SHOW_AUXV=1 {command}"))
     panda.end_analysis()
 
 @panda.ppp("proc_start_linux","on_rec_auxv")

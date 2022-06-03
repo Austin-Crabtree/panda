@@ -58,7 +58,7 @@ def parse_signature_files(rootdir, arch, locations, normalize=False):
     '''
     signatures_parsed = {}
     for source, regex in locations.items():
-        sigfile = '%s/%s' % (rootdir, source)
+        sigfile = f'{rootdir}/{source}'
         sigstart_re = re.compile(regex)
         logging.info('Parsing signatures from %s:', sigfile)
         assert os.path.isfile(sigfile)
@@ -69,11 +69,11 @@ def parse_signature_files(rootdir, arch, locations, normalize=False):
                 line_match = sigstart_re.search(line)
                 if line_match is not None:
                     assert not multiline_signature
-                    syscall = line_match.group('syscall')
-                    signature = line_match.group('signature')
+                    syscall = line_match['syscall']
+                    signature = line_match['signature']
                     if line.endswith(')'):
                         ## function definition
-                        signatures_parsed[syscall] = signature + ';'
+                        signatures_parsed[syscall] = f'{signature};'
                     elif line.endswith(';'):
                         ## function declaration - one liner
                         signatures_parsed[syscall] = signature
@@ -113,12 +113,12 @@ def parse_numbers_tbl(rootdir, arch, source):
         preferred (and most robust way) way to create the PANDA
         system call prototype files.
     '''
-    tblfile = '%s/%s' % (rootdir, source)
+    tblfile = f'{rootdir}/{source}'
     logging.info('Parsing syscall numbers from %s.', tblfile)
     assert os.path.isfile(tblfile)
     syscall_numbers = {}
     with open(tblfile) as f:
-        for ln, line in enumerate(f):
+        for line in f:
             if not re.match('^\d', line): continue
             nr, abi, name, entry, compat = pad_list(line.split(), 5)
             if entry is None:
@@ -135,9 +135,9 @@ def parse_numbers_calltable(rootdir, arch, source, regex, syscalls_skip):
         table file. So additional sources may need to be used in
         order to generate PANDA prototypes for all system calls.
     '''
-    calltablefile = '%s/%s' % (rootdir, source)
+    calltablefile = f'{rootdir}/{source}'
     logging.info('Parsing syscall numbers from %s.', calltablefile)
-    assert os.path.isfile(calltablefile), "Missing file " + calltablefile
+    assert os.path.isfile(calltablefile), f"Missing file {calltablefile}"
 
     # parse numbers from file
     syscall_numbers = {}
@@ -147,19 +147,15 @@ def parse_numbers_calltable(rootdir, arch, source, regex, syscalls_skip):
 
         callnr = 0
         for ln, line in enumerate(f, 1):
-            # extract call information
-            # using groupdict()/get() acounts for missing group names
-            call_m = call_re.search(line)
-            if call_m:
-                d = call_m.groupdict()
-                syscall = d.get('syscall')
-                is_abi = d.get('abi') is not None
-                is_obsolete = d.get('obsolete') is not None
-                is_compat = d.get('compat') is not None
-            else:
+            if not (call_m := call_re.search(line)):
                 #logging.debug('Skipping line %03d: \'%s\'', ln, line)
                 continue
 
+            d = call_m.groupdict()
+            syscall = d.get('syscall')
+            is_abi = d.get('abi') is not None
+            is_obsolete = d.get('obsolete') is not None
+            is_compat = d.get('compat') is not None
             # Do we need to special case 'compat' syscalls?
             #if is_compat:
             #    logging.warning("COMPAT %s on line %d:", syscall, ln)
@@ -177,12 +173,8 @@ def parse_numbers_calltable(rootdir, arch, source, regex, syscalls_skip):
             # normalize names of syscalls that go through SP and register adjusting wrappers
             syscall = re.sub(r'_wrapper$', '', syscall)
 
-            # scan for call number hint
-            callnr_m = callnr_re.match(line)
-            if callnr_m:
-                callnr = int(callnr_m.group('nr'))
-                #logging.debug('Call number set to %d on line %d.', callnr, ln)
-
+            if callnr_m := callnr_re.match(line):
+                callnr = int(callnr_m['nr'])
             # add to dictionary
             syscall_numbers[syscall] = callnr
             callnr += 1
@@ -194,7 +186,7 @@ def parse_numbers_unistd(rootdir, arch, source, cpp_flags=[]):
         system call prototype files, the names have to be matched
         (heuristically) to entry function names.
     '''
-    unistdfile = '%s/%s' % (rootdir, source)
+    unistdfile = f'{rootdir}/{source}'
     logging.info('Parsing syscall numbers from %s.', unistdfile)
     assert os.path.isfile(unistdfile)
 
@@ -208,19 +200,22 @@ def parse_numbers_unistd(rootdir, arch, source, cpp_flags=[]):
                 continue
             elif macro.startswith('__NR_'):
                 syscall_name = re.sub(r'^__NR__?', '', macro)   # extra '_' accounts for _llseek
-            elif macro.startswith('__%s_NR_' % (arch.upper())):
-                syscall_name = re.sub(r'^__%s_NR_' % (arch.upper()), '%s_' % (arch.upper()), macro)
+            elif macro.startswith(f'__{arch.upper()}_NR_'):
+                syscall_name = re.sub(f'^__{arch.upper()}_NR_', f'{arch.upper()}_', macro)
             else:
                 continue
             syscall_nrdefs[syscall_name] = macro
 
     # construct a pseudo-header to feed to preprocessor
-    header = '#include "%s"\n%s\n' % (unistdfile,
-            '\n'.join(['%s:%s' % (n, m) for n, m in syscall_nrdefs.items()]))
+    header = '#include "%s"\n%s\n' % (
+        unistdfile,
+        '\n'.join([f'{n}:{m}' for n, m in syscall_nrdefs.items()]),
+    )
+
 
     # use gcc to expand macros in the header
     cpp_flags = ' '.join(cpp_flags)
-    cpp_cmd = 'gcc %s -E -' % (cpp_flags)
+    cpp_cmd = f'gcc {cpp_flags} -E -'
     cpp = subprocess.run(shlex.split(cpp_cmd), input=header,
             stdout=subprocess.PIPE, encoding='utf-8', check=True)
 
@@ -231,7 +226,7 @@ def parse_numbers_unistd(rootdir, arch, source, cpp_flags=[]):
         try:
             syscall_name, syscall_nr_expr = pad_list(line.split(':', 1), 1)
         except ValueError:
-            print("Failed to parse: " + line)
+            print(f"Failed to parse: {line}")
             raise
         if syscall_nr_expr is None: continue
         try:
@@ -248,7 +243,7 @@ def parse_numbers_volatility(rootdir, arch, os):
     ''' Reads system call lists from a custom package mirroring the
         system call overlays from the Volatility project.
     '''
-    volatility_module = 'volatility_local.%s_%s_syscalls' % (os, arch)
+    volatility_module = f'volatility_local.{os}_{arch}_syscalls'
     module = importlib.import_module(volatility_module)
     syscalls = module.syscalls
     syscall_numbers = {}
@@ -312,9 +307,9 @@ def write_prototypes(fsigs, fnums, nnums, config, outdir):
     assert(fsigs is not None and len(fsigs)), "No functions provided (incorrect map_name_number logic?)"
     assert(fnums is not None and len(fnums)), "No syscall numbers provided (incorrect map_function_number logic?)"
     if 'outfile' in config:
-        protofile = '%s/%s' % (outdir, config['outfile'])
+        protofile = f"{outdir}/{config['outfile']}"
     else:
-        protofile = '%s/%s_%s_prototypes.txt' % (outdir, config['os'], config['arch'])
+        protofile = f"{outdir}/{config['os']}_{config['arch']}_prototypes.txt"
     logging.info('Writing prototypes for %s:%s to %s.', config['os'], config['arch'], protofile)
 
     # work on a copy of fsigs, and reverse number mappings
@@ -327,10 +322,8 @@ def write_prototypes(fsigs, fnums, nnums, config, outdir):
 
     # directly match numbers from fnums_r to signatures
     for number, function in sorted(fnums_r.items()):
-        # sidestep ptregs issue
-        foo = re.search("(.*)/ptregs", function)
-        if foo:
-            function = foo.groups()[0]            
+        if foo := re.search("(.*)/ptregs", function):
+            function = foo.groups()[0]
         if function in fsigs:
             numsigs[number] = fsigs[function]
             fsigs.pop(function)
@@ -340,11 +333,11 @@ def write_prototypes(fsigs, fnums, nnums, config, outdir):
             logging.error('Could not find signature for %s (nr=%d).', function, number)
             continue
 
+    syscall_prefixes = ['', 'sys_', 'ptregs_']
     # attempt to match numbers remaining in nnums_r to signatures
     for number, name in sorted(nnums_r.items()):
-        syscall_prefixes = ['', 'sys_', 'ptregs_']
         for p in syscall_prefixes:
-            function = '%s%s' % (p, name)
+            function = f'{p}{name}'
             if function in fsigs:
                 numsigs[number] = fsigs[function]
                 fsigs.pop(function)
@@ -385,7 +378,10 @@ if __name__ == '__main__':
     # sanity checks
     logging.debug('args: %s', args)
     logging.debug('config: %s', config)
-    assert os.path.isdir(args.outdir), 'Output directory %s does not exist.' % args.outdir
+    assert os.path.isdir(
+        args.outdir
+    ), f'Output directory {args.outdir} does not exist.'
+
 
     logging.info('Generating prototypes for {os}:{arch} using {variant} as source.'.format(**config))
 
@@ -396,7 +392,7 @@ if __name__ == '__main__':
 
     # load extra signatures
     if 'extrasigs' in config:
-        with open('%s/%s' % (config['json_dir'], config['extrasigs'])) as f:
+        with open(f"{config['json_dir']}/{config['extrasigs']}") as f:
             extrasigs = json.load(f)
             syscall_fsigs.update(extrasigs)
             logging.info('Loaded %d additional signatures from %s.', len(extrasigs), config['extrasigs'])

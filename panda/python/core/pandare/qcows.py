@@ -238,15 +238,20 @@ class Qcows():
             name = "i386"
 
         if path.isfile(name):
-            raise RuntimeError("TODO: can't automatically determine system info from custom qcows. Use one of: {}".format(", ".join(SUPPORTED_IMAGES.keys())))
+            raise RuntimeError(
+                f"""TODO: can't automatically determine system info from custom qcows. Use one of: {", ".join(SUPPORTED_IMAGES.keys())}"""
+            )
+
 
         name = name.lower() # Case insensitive. Assumes supported_arches keys are lowercase
         if name not in SUPPORTED_IMAGES.keys():
-            raise RuntimeError("Architecture {} is not in list of supported names: {}".format(name, ", ".join(SUPPORTED_IMAGES.keys())))
+            raise RuntimeError(
+                f'Architecture {name} is not in list of supported names: {", ".join(SUPPORTED_IMAGES.keys())}'
+            )
 
-        r = SUPPORTED_IMAGES[name]
+
         # Move properties in .arch to being in the main object
-        return r
+        return SUPPORTED_IMAGES[name]
 
     @staticmethod
     def get_qcow(name=None):
@@ -269,7 +274,10 @@ class Qcows():
 
         name = name.lower() # Case insensitive. Assumes supported_images keys are lowercase
         if name not in SUPPORTED_IMAGES.keys():
-            raise RuntimeError("Architecture {} is not in list of supported names: {}".format(name, ", ".join(SUPPORTED_IMAGES.keys())))
+            raise RuntimeError(
+                f'Architecture {name} is not in list of supported names: {", ".join(SUPPORTED_IMAGES.keys())}'
+            )
+
 
         image_data = SUPPORTED_IMAGES[name]
         qc = image_data.qcow
@@ -311,10 +319,7 @@ class Qcows():
         '''
         from sys import argv
 
-        if len(argv) > idx:
-            return Qcows.get_qcow(argv[idx])
-        else:
-            return Qcows.get_qcow()
+        return Qcows.get_qcow(argv[idx]) if len(argv) > idx else Qcows.get_qcow()
 
     @staticmethod
     def cli(target):
@@ -323,7 +328,7 @@ class Qcows():
         qcow = Qcows.get_qcow(target)
         arch = q.arch
         build_dir = Panda._find_build_dir(arch)
-        panda_args = [build_dir + f"/{arch}-softmmu/panda-system-{arch}"]
+        panda_args = [f"{build_dir}/{arch}-softmmu/panda-system-{arch}"]
         biospath = path.realpath(path.join(build_dir, "pc-bios"))
         panda_args.extend(["-L", biospath])
 
@@ -355,7 +360,10 @@ if __name__ == "__main__":
     valid_names = ", ".join(SUPPORTED_IMAGES.keys())
 
     if len(argv) != 2 or argv[1] not in SUPPORTED_IMAGES:
-        raise ValueError(f"USAGE: {argv[0]}: target_arch where name is one of " + valid_names)
+        raise ValueError(
+            f"USAGE: {argv[0]}: target_arch where name is one of {valid_names}"
+        )
+
 
     cmd = Qcows.cli(argv[1])
     if stdout.isatty():

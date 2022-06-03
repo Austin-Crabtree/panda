@@ -56,8 +56,10 @@ def gen_syscalls(os_arch):
     return num_sc
 
 if __name__ == '__main__':
-    results = {}
-    for arch in ['linux_arm', 'linux_mips', 'linux_x64', 'linux_x86']:
-        results[arch] = gen_syscalls(arch)
+    results = {
+        arch: gen_syscalls(arch)
+        for arch in ['linux_arm', 'linux_mips', 'linux_x64', 'linux_x86']
+    }
+
     with open("syscalls.json", 'w') as f:
         json.dump(results, f)

@@ -8,6 +8,7 @@ scapy to write the packets to a PCAP for further examination.
 
 Run with: python3 network_session_extract.py
 '''
+
 from sys import argv
 from os import path, remove
 from scapy.all import Ether, wrpcap
@@ -20,7 +21,7 @@ panda = Panda(generic=arch)
 pcap_path = "out.pcap"
 
 recording_name = "wget_google"
-for f in [recording_name+"-rr-nondet.log", recording_name+"-rr-snp"]:
+for f in [f"{recording_name}-rr-nondet.log", f"{recording_name}-rr-snp"]:
     if path.isfile(f): remove(f)
 
 
@@ -42,5 +43,5 @@ def handle_packet(cpustate,buf,size,direction,old_buf_addr):
 panda.run_replay(recording_name)
 wrpcap(pcap_path, packets)
 
-for f in [recording_name+"-rr-nondet.log", recording_name+"-rr-snp"]:
+for f in [f"{recording_name}-rr-nondet.log", f"{recording_name}-rr-snp"]:
     if path.isfile(f): remove(f)

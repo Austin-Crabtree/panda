@@ -102,7 +102,7 @@ class Ioctl():
         Helper retrive original return code, handles arch-specifc ABI
         '''
 
-        if panda.arch_name == "mipsel" or panda.arch_name == "mips":
+        if panda.arch_name in ["mipsel", "mips"]:
             # Note: return values are in $v0, $v1 (regs 2 and 3 respectively), but here we only use first
             self.original_ret_code = panda.from_unsigned_guest(cpu.env_ptr.active_tc.gpr[2])
         elif panda.arch_name == "aarch64":
@@ -115,14 +115,14 @@ class Ioctl():
     def __str__(self):
 
         if self.osi:
-            self_str = "\'{}\' using \'{}\' - ".format(self.proc_name, self.file_name)
+            self_str = f"'{self.proc_name}' using '{self.file_name}' - "
         else:
             self_str = ""
 
         bits = self.cmd.bits
         direction = ffi.string(ffi.cast("enum ioctl_direction", bits.direction))
         ioctl_desc = f"dir={direction},arg_size={bits.arg_size:x},cmd=0x{bits.cmd_num:x},type=0x{bits.type_num:x}"
-        if (self.guest_ptr == None):
+        if self.guest_ptr is None:
             self_str += f"ioctl({ioctl_desc}) -> {self.original_ret_code}"
         else:
             self_str += f"ioctl({ioctl_desc},ptr={self.guest_ptr:08x},buf={self.guest_buf}) -> {self.original_ret_code}"
@@ -201,7 +201,7 @@ class IoctlFaker():
                 ioctl.original_ret_code in self.intercept_ret_vals and \
                         (ioctl.file_name, ioctl.cmd.bits.cmd_num) not in self.ignore: # Allow ignoring specific commands on specific files
 
-                if panda.arch_name == "mipsel" or panda.arch_name == "mips":
+                if panda.arch_name in ["mipsel", "mips"]:
                     cpu.env_ptr.active_tc.gpr[2] = 0
                 elif panda.arch_name == "aarch64":
                     cpu.env_ptr.xregs[0] = 0
@@ -213,11 +213,10 @@ class IoctlFaker():
                 self._forced_returns.add(ioctl)
 
                 if ioctl.has_buf and self._log:
-                    self._logger.warning("Forcing success return for data-containing {}".format(ioctl))
+                    self._logger.warning(f"Forcing success return for data-containing {ioctl}")
                 elif self._log:
-                    self._logger.info("Forcing success return for data-less {}".format(ioctl))
+                    self._logger.info(f"Forcing success return for data-less {ioctl}")
 
-            # Don't modify
             else:
                 self._unmodified_returns.add(ioctl)
 

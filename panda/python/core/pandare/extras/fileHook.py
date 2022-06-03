@@ -152,7 +152,7 @@ class FileHook:
         '''
 
         assert(args)
-        (cpu, pc) = args[0:2]
+        (cpu, pc) = args[:2]
 
         if not fname_ptr:
             fname_ptr = args[2+fname_ptr_pos] # offset to after (cpu, pc) in callback args
@@ -209,7 +209,7 @@ class FileHook:
         we need to restore whatever data was there (we may have written
         past the end of the string)
         '''
-        (cpu, pc) = args[0:2]
+        (cpu, pc) = args[:2]
         if self.pending_virt_read:
             fname_ptr = args[2+fname_ptr_pos] # offset to after (cpu, pc) in callback args
 
@@ -260,7 +260,7 @@ if __name__ == '__main__':
     def read_it():
         panda.revert_sync('root')
         data = panda.run_serial_cmd("cat /does_not_exist")
-        assert("Ubuntu" in data), f"Hook failed"
+        assert ("Ubuntu" in data), "Hook failed"
         panda.end_analysis()
 
     panda.run()

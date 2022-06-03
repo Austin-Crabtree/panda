@@ -9,7 +9,7 @@ panda = Panda(generic=arch)
 # %%
 from os.path import exists
 
-recording_name = "catetc4"+arch
+recording_name = f"catetc4{arch}"
 
 if not exists(f"{recording_name}-rr-snp"):
     print("recordig did not exist")
@@ -63,23 +63,19 @@ def check_disable(current_asid,mad):
     for region in allocated_regions:
         asid,address = region
         size,enabled,phys = allocated_regions[region]
-        if asid == current_asid:
-            if not enabled:
-                if mad.on_virtual:
-                    if mad.addr <= address <= mad.addr + size:
-                        print("disabling virtual")
-                        mad.hook.enabled = False
-                        del allocated_regions[region]
-                else:
-                    if mad.addr <= address <= mad.addr + size:
-                        print("disabling virtual")
-                        mad.hook.enabled = False
-                        del allocated_regions[region]
+        if (
+            asid == current_asid
+            and not enabled
+            and mad.addr <= address <= mad.addr + size
+        ):
+            print("disabling virtual")
+            mad.hook.enabled = False
+            del allocated_regions[region]
 
 
 def mem_writes_hooked_mallocs(cpu,mad):
     if mad.buf != ffi.NULL:
-        buf_read = bytes([mad.buf[i] for i in range(mad.size)])
+        buf_read = bytes(mad.buf[i] for i in range(mad.size))
     else:
         buf_read = panda.physical_memory_read(mad.addr, mad.size)
     check_disable(panda.current_asid(cpu),mad)
@@ -109,10 +105,7 @@ def hook_realloc_return(env,tb):
     print(f"{panda.get_process_name(env)} REALLOC RETURN VALUE: 0x{mem_val:x} {realloc_vals[asid]}")
     if (asid,ptr) in allocated_regions:
         del allocated_regions[(asid,ptr)]
-    if (asid,mem_val) in allocated_regions:
-        allocated_regions[(asid,mem_val)] = size
-    else:
-        allocated_regions[(asid,mem_val)] = size
+    allocated_regions[(asid,mem_val)] = size
     return 0
 
 def hook_realloc(env, tb):
@@ -183,18 +176,17 @@ def hook_close(env,tb):
     return 0
 
 def get_arg(env, num):
-    if arch == "i386":
+    if arch == "arm":
+        r_vals = ["LR", "R0", "R1", "R2","R3"]
+        return panda.arch.get_reg(env, r_vals[num - 1])
+    elif arch == "i386":
         esp = panda.arch.get_reg(env,"ESP")
-        r = panda.virtual_memory_read(env,esp+(4*num),4,fmt='int')
+        return panda.virtual_memory_read(env,esp+(4*num),4,fmt='int')
     elif arch == "x86_64":
         esp = panda.arch.get_reg(env, "RSP")
-        r = panda.virtual_memory_read(env, esp+(8*num),8,fmt='int')
-    elif arch == "arm":
-        r_vals = ["LR", "R0", "R1", "R2","R3"]
-        r = panda.arch.get_reg(env, r_vals[num - 1])
+        return panda.virtual_memory_read(env, esp+(8*num),8,fmt='int')
     else:
-        r = 0
-    return r
+        return 0
 
 def get_retval(env):
     if arch == "i386":
@@ -203,7 +195,7 @@ def get_retval(env):
         return panda.arch.get_reg(env, "RAX")
     elif arch == "arm":
         return panda.arch.get_reg(env, "R0")
-    elif arch == "mips" or arch == "mipsel":
+    elif arch in ["mips", "mipsel"]:
         return panda.arch.get_reg(env,"v0")
     return 0
 
@@ -211,8 +203,7 @@ def fd_to_fname(env, fd):
     proc = panda.plugins['osi'].get_current_process(env)
     procname = ffi.string(proc.name) if proc != ffi.NULL else "error"
     fname_ptr = panda.plugins['osi_linux'].osi_linux_fd_to_filename(env, proc, fd)
-    fname = ffi.string(fname_ptr) if fname_ptr != ffi.NULL else "error"
-    return fname
+    return ffi.string(fname_ptr) if fname_ptr != ffi.NULL else "error"
 
 def hook_return(name, cpu):
     ra = get_arg(cpu, 0)
@@ -254,16 +245,6 @@ def hit(cpu, tb, mad):
 def program_start(env, tb, sh):
     print("got to program_start")
     return 0
-    '''
-    hook_function(env, hook_exit, "_Exit")
-    hook_function(env, hook_open, "__open64")
-    hook_function(env, hook_malloc, "__libc_malloc")
-    hook_function(env, hook_free, "__libc_free")
-    hook_function(env, hook_realloc, "__libc_realloc")
-    hook_function(env, hook_read, "__read")
-    hook_function(env, hook_write, "__write")
-    return 0
-    '''
 
 from cffi import FFI
 ffi = FFI()
@@ -336,60 +317,59 @@ def execve_enter(cpu, pc, pathname, argv, envp):
     '''
     @panda.cb_before_block_exec(name=funcname, enabled=True)
     def grab_auxiliary_vector(cpu, tb):
-        if not panda.in_kernel(cpu):
-            sp = panda.current_sp(cpu)
-            buf_size = panda.ffi.sizeof("target_ulong")
-            stack = panda.virtual_memory_read(cpu, sp, 50*buf_size)
-            pybuf = panda.ffi.from_buffer(stack)
-            ptrlist = panda.ffi.cast("target_ulong*", pybuf)
-            argc = ptrlist[0]
-            arglist = []
-            ptrlistpos = 1
-            while True:
-                ptr = ptrlist[ptrlistpos]
-                ptrlistpos += 1
-                if ptr != 0: 
-                    try:
-                        value = panda.read_str(cpu, ptr)
-                        arglist.append(value)
-                    except:
-                        arglist.append("?")
-                else:
-                    break
-            print(f"arglist: {' '.join(arglist)}")
+        if panda.in_kernel(cpu):
+            return
+        sp = panda.current_sp(cpu)
+        buf_size = panda.ffi.sizeof("target_ulong")
+        stack = panda.virtual_memory_read(cpu, sp, 50*buf_size)
+        pybuf = panda.ffi.from_buffer(stack)
+        ptrlist = panda.ffi.cast("target_ulong*", pybuf)
+        argc = ptrlist[0]
+        arglist = []
+        ptrlistpos = 1
+        while True:
+            ptr = ptrlist[ptrlistpos]
+            ptrlistpos += 1
+            if ptr == 0:
+                break
+            try:
+                value = panda.read_str(cpu, ptr)
+                arglist.append(value)
+            except:
+                arglist.append("?")
+        print(f"arglist: {' '.join(arglist)}")
 
-            envlist = []
+        envlist = []
 
-            while True:
-                ptr = ptrlist[ptrlistpos]
-                ptrlistpos += 1
-                if ptr != 0:
-                    try: 
-                        value = panda.read_str(cpu, ptr)
-                        envlist.append(value)
-                    except:
-                        envlist.append("?")
-                else:
-                    break
-            print(f"envlist: {','.join(envlist)}")
+        while True:
+            ptr = ptrlist[ptrlistpos]
+            ptrlistpos += 1
+            if ptr == 0:
+                break
+            try: 
+                value = panda.read_str(cpu, ptr)
+                envlist.append(value)
+            except:
+                envlist.append("?")
+        print(f"envlist: {','.join(envlist)}")
 
-            print("Auxiliary vector:")
-            while True:
-                auxv_entrynum = ptrlist[ptrlistpos]
-                auxv_entryval = ptrlist[ptrlistpos+1]
-                ptrlistpos += 2
-                entrynumstr = ffi.string(ffi.cast("enum auxv_types", auxv_entrynum))
-                if entrynumstr == "AT_NULL":
-                    break
-                elif entrynumstr == "AT_ENTRY":
-                    print(f"{entrynumstr} {hex(auxv_entryval)}")
-                    global program_start
-                    panda.hook(auxv_entryval, kernel=False, enabled=True, name=f"{proc_name(cpu).decode()}:program_start")(program_start)
-                    break
-                else:
-                    print(f"{entrynumstr} {hex(auxv_entryval)}")
+        print("Auxiliary vector:")
+        while True:
+            auxv_entrynum = ptrlist[ptrlistpos]
+            auxv_entryval = ptrlist[ptrlistpos+1]
+            ptrlistpos += 2
+            entrynumstr = ffi.string(ffi.cast("enum auxv_types", auxv_entrynum))
+            if entrynumstr == "AT_NULL":
+                break
+            elif entrynumstr == "AT_ENTRY":
+                print(f"{entrynumstr} {hex(auxv_entryval)}")
+                global program_start
+                panda.hook(auxv_entryval, kernel=False, enabled=True, name=f"{proc_name(cpu).decode()}:program_start")(program_start)
+                break
+            else:
+                print(f"{entrynumstr} {hex(auxv_entryval)}")
 
-            panda.disable_callback(funcname)
+        panda.disable_callback(funcname)
 
 #@panda.hook_symbol("libc", "_Exit")
 def get_exit(cpu, tb, h):

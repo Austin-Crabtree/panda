@@ -65,6 +65,7 @@ entry for a single pc, though.
 
 """
 
+
 import re
 import os
 import subprocess as sp
@@ -84,9 +85,7 @@ assert (arch_data.dir == 'i386-softmmu')
 
 # also, we need to know if input was file or stdin
 # and that it can't be both
-if (stdin ^ (not (fileinput is None))):
-    pass
-else:
+if not stdin ^ (fileinput is not None):
     print("You didn't tell me stdin/fileinput.")
     # try to deduce stdin / filename
     saw_redirect = len([x for x in guest_cmd if x=='<']) > 0
@@ -94,8 +93,8 @@ else:
         stdin = True
         print("... I deduced stdin")
     else:
-        fileinput = os.path.basename(guest_cmd[-1])        
-        print("... I deduced file input [%s]" % fileinput)
+        fileinput = os.path.basename(guest_cmd[-1])
+        print(f"... I deduced file input [{fileinput}]")
 
 print("\n-----------------------------------------------------------------------------")
 print("\nFirst pass replay to figure out when to turn on taint (after file opened)\n")
@@ -108,7 +107,7 @@ if stdin:
     raise ValueError("Actually, stdin taint not working?")
 else: 
     # file input
-    panda_args.extend(["-panda", "file_taint:filename=%s,notaint=y" % fileinput])
+    panda_args.extend(["-panda", f"file_taint:filename={fileinput},notaint=y"])
 
 # first pass to get instr to turn on taint
 output = sp.check_output([qemu_binary(arch_data)] + panda_args)
@@ -116,19 +115,15 @@ output = sp.check_output([qemu_binary(arch_data)] + panda_args)
 t3 = time.time()
 
 for line in output.split('\n'):
-#    print line
-    foo = re.search("saw open of file we want to taint: .* insn ([0-9]+)", line)
-    if foo:
+    if foo := re.search(
+        "saw open of file we want to taint: .* insn ([0-9]+)", line
+    ):
         insn = int(foo.groups()[0])
         print("file opened @ insn = %d" % insn)
         print("arbitrarily reducing that by 1m")
         insn -= 1000000
-        if insn < 0:
-            insn = 0
+        insn = max(insn, 0)
         break
-        print("We'll turn on taint around instr %d" % insn)
-
-
 print("\n-----------------------------------------------------------------------------")
 print("\nSecond pass replay to actually perform taint analysis\n")
 
@@ -138,12 +133,11 @@ panda_args.extend(["-pandalog", "taint.plog"])
 
 if stdin:
     raise ValueError("Actually, stdin taint not working?")
-else: 
-    # file input
-    more_args =  ["-panda", "file_taint:filename=%s,pos=y,first_instr=%d" % (fileinput, insn), \
-                  "-panda", "tainted_instr", \
-                  "-panda", "tainted_branch"]
-    panda_args.extend(more_args)
+# file input
+more_args =  ["-panda", "file_taint:filename=%s,pos=y,first_instr=%d" % (fileinput, insn), \
+              "-panda", "tainted_instr", \
+              "-panda", "tainted_branch"]
+panda_args.extend(more_args)
 
 # first pass to get instr to turn on taint
 output = sp.check_output([qemu_binary(arch_data)] + panda_args)

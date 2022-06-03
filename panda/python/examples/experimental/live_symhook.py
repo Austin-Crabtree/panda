@@ -4,11 +4,7 @@ from sys import argv
 arch = argv[1] if len(argv) > 1 else "i386"
 panda = Panda(generic=arch)
 
-if arch in ["arm", "mips", "mipsel"]:
-    program_name = "wget"
-else:
-    program_name = "curl"
-
+program_name = "wget" if arch in ["arm", "mips", "mipsel"] else "curl"
 command_str = f"{program_name} --no-check-certificate  http://www.ll.mit.edu/sites/default/files/styles/ifde_wysiwyg__floated/public/other/image/2018-04/New_Full_Logo-BLACK-2500-lissajou-only-square.png -O o.png"
 
 @panda.queue_async

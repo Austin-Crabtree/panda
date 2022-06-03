@@ -113,9 +113,9 @@ class CommandLineMoreEfficient(interfaces.plugins.FileConsumerInterface):
         # this is our fake file that represents QEMU memory
         single_location = "file:" + pathname2url("/panda.panda")
         ctx.config['automagic.LayerStacker.single_location'] = single_location
-        constructed = plugins.construct_plugin(
-                ctx, automagics, plugin, base_config_path, MuteProgress(), self)
-        return constructed
+        return plugins.construct_plugin(
+            ctx, automagics, plugin, base_config_path, MuteProgress(), self
+        )
 
 
 class CommandLineRunFullCommand(interfaces.plugins.FileConsumerInterface):
@@ -201,13 +201,15 @@ class CommandLineRunFullCommand(interfaces.plugins.FileConsumerInterface):
                             type=str)
         parser.add_argument(
             "-q", "--quiet", help="Remove progress feedback", default=False, action='store_true')
-        parser.add_argument("-r",
-                            "--renderer",
-                            metavar='RENDERER',
-                            help="Determines how to render the output ({})".format(
-                                ", ".join(list(renderers))),
-                            default="quick",
-                            choices=list(renderers))
+        parser.add_argument(
+            "-r",
+            "--renderer",
+            metavar='RENDERER',
+            help=f'Determines how to render the output ({", ".join(list(renderers))})',
+            default="quick",
+            choices=list(renderers),
+        )
+
         parser.add_argument("-f",
                             "--file",
                             metavar='FILE',
@@ -221,8 +223,7 @@ class CommandLineRunFullCommand(interfaces.plugins.FileConsumerInterface):
 
         # We have to filter out help, otherwise parse_known_args will trigger the help message before having
         # processed the plugin choice or had the plugin subparser added.
-        known_args = [arg for arg in arg_arr if arg !=
-                      '--help' and arg != '-h']
+        known_args = [arg for arg in arg_arr if arg not in ['--help', '-h']]
         partial_args, _ = parser.parse_known_args(known_args)
         if partial_args.plugin_dirs:
             volatility.plugins.__path__ = [os.path.abspath(p)
@@ -246,10 +247,8 @@ class CommandLineRunFullCommand(interfaces.plugins.FileConsumerInterface):
             console.setLevel(10 - (partial_args.verbosity - 2))
         #console.setLevel(0)
 
-        self.vollog.info("Volatility plugins path: {}".format(
-            volatility.plugins.__path__))
-        self.vollog.info("Volatility symbols path: {}".format(
-            volatility.symbols.__path__))
+        self.vollog.info(f"Volatility plugins path: {volatility.plugins.__path__}")
+        self.vollog.info(f"Volatility symbols path: {volatility.symbols.__path__}")
 
         # Set the PARALLELISM
         if partial_args.parallelism == 'processes':
@@ -261,9 +260,7 @@ class CommandLineRunFullCommand(interfaces.plugins.FileConsumerInterface):
 
         # Do the initialization
         ctx = contexts.Context()  # Construct a blank context
-        failures = framework.import_files(volatility.plugins,
-                                          True)  # Will not log as console's default level is WARNING
-        if failures:
+        if failures := framework.import_files(volatility.plugins, True):
             parser.epilog = "The following plugins could not be loaded (use -vv to see why): " + \
                 ", ".join(sorted(failures))
             self.vollog.info(parser.epilog)
@@ -302,8 +299,10 @@ class CommandLineRunFullCommand(interfaces.plugins.FileConsumerInterface):
         if args.plugin is None:
             parser.error("Please select a plugin to run")
 
-        self.vollog.log(constants.LOGLEVEL_VVV,
-                   "Cache directory used: {}".format(constants.CACHE_PATH))
+        self.vollog.log(
+            constants.LOGLEVEL_VVV, f"Cache directory used: {constants.CACHE_PATH}"
+        )
+
 
         plugin = plugin_list[args.plugin]
         base_config_path = "plugins"
@@ -317,9 +316,9 @@ class CommandLineRunFullCommand(interfaces.plugins.FileConsumerInterface):
         if args.file:
             file_name = os.path.abspath(args.file)
             if not os.path.exists(file_name) and "panda.panda" not in file_name:
-                print("File does not exist: {}".format(file_name))
+                print(f"File does not exist: {file_name}")
             else:
-                single_location = "file:" + request.pathname2url(file_name)
+                single_location = f"file:{request.pathname2url(file_name)}"
                 ctx.config['automagic.LayerStacker.single_location'] = single_location
 
         # UI fills in the config, here we load it from the config file and do it before we process the CL parameters
@@ -365,8 +364,12 @@ class CommandLineRunFullCommand(interfaces.plugins.FileConsumerInterface):
             return constructed
         except exceptions.UnsatisfiedException as excp:
             self.process_exceptions(excp)
-            parser.exit(1, "Unable to validate the plugin requirements: {}\n".format(
-                [x for x in excp.unsatisfied]))
+            parser.exit(
+                1,
+                "Unable to validate the plugin requirements: {}\n".format(
+                    list(excp.unsatisfied)
+                ),
+            )
 
     def process_exceptions(self, excp):
         """Provide useful feedback if an exception occurs."""
@@ -380,8 +383,10 @@ class CommandLineRunFullCommand(interfaces.plugins.FileConsumerInterface):
             symbols_failed = symbols_failed or isinstance(excp.unsatisfied[config_path],
                                                           configuration.requirements.SymbolTableRequirement)
 
-            print("Unsatisfied requirement {}: {}".format(
-                config_path, excp.unsatisfied[config_path].description))
+            print(
+                f"Unsatisfied requirement {config_path}: {excp.unsatisfied[config_path].description}"
+            )
+
 
         if symbols_failed:
             print("\nA symbol table requirement was not fulfilled.	Please verify that:\n"

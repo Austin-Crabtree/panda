@@ -29,7 +29,7 @@ def int128(p):
     if p.type.code == gdb.TYPE_CODE_STRUCT:
         return int(p['lo']) + (int(p['hi']) << 64)
     else:
-        return int(("%s" % p), 16)
+        return int(f"{p}", 16)
 
 class MtreeCommand(gdb.Command):
     '''Display the memory tree hierarchy'''

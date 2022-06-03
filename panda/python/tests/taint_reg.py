@@ -14,10 +14,13 @@ md = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_32)
 bin_dir = "taint"
 bin_name = "taint_asm"
 
-assert(path.isfile(path.join(bin_dir, bin_name))), "Missing file {}".format(path.join(bin_dir, bin_name))
+assert path.isfile(
+    path.join(bin_dir, bin_name)
+), f"Missing file {path.join(bin_dir, bin_name)}"
+
 
 # Take a recording of toy running in the guest if necessary
-recording_name = bin_dir+"_"+bin_name
+recording_name = f"{bin_dir}_{bin_name}"
 if not path.isfile(recording_name +"-rr-snp"):
     @panda.queue_blocking
     def run_it():
@@ -57,22 +60,23 @@ def taint_it(env, tb):
 
 @panda.cb_before_block_exec(procname=bin_name)
 def bbe(env, tb):
-    if tb.pc in mappings:
-        print(mappings[tb.pc])
-        if mappings[tb.pc] == "query_taint":
-            print("\nTAINT INFO")
-            for reg_name, reg in panda.arch.registers.items():
-                if panda.taint_check_reg(reg):
-                    for idx, byte_taint in enumerate(panda.taint_get_reg(reg)):
-                        labels = byte_taint.get_labels()
-                        print("Taint of register {}, byte {}".format(reg_name, idx), labels)
-                        if reg_name == "EAX":
-                            assert([10] == labels), "Incorrect taint on EAX"
-                        elif reg_name == "EBX":
-                            assert([10, 20] == labels), "Incorrect taint on EBX"
-                        elif reg_name == "ECX":
-                            assert([10, 20, 30] == labels), "Incorrect taint on ECX"
-            panda.end_analysis()
+    if tb.pc not in mappings:
+        return
+    print(mappings[tb.pc])
+    if mappings[tb.pc] == "query_taint":
+        print("\nTAINT INFO")
+        for reg_name, reg in panda.arch.registers.items():
+            if panda.taint_check_reg(reg):
+                for idx, byte_taint in enumerate(panda.taint_get_reg(reg)):
+                    labels = byte_taint.get_labels()
+                    print(f"Taint of register {reg_name}, byte {idx}", labels)
+                    if reg_name == "EAX":
+                        assert([10] == labels), "Incorrect taint on EAX"
+                    elif reg_name == "EBX":
+                        assert([10, 20] == labels), "Incorrect taint on EBX"
+                    elif reg_name == "ECX":
+                        assert([10, 20, 30] == labels), "Incorrect taint on ECX"
+        panda.end_analysis()
 
 panda.disable_tb_chaining()
 panda.run_replay(recording_name)

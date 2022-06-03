@@ -51,8 +51,5 @@ class HandlersCommand(gdb.Command):
             gdb.write('usage: qemu handlers [--verbose] [handler]\n')
             return
 
-        if len(argv) == 1:
-            handlers_name = argv[0]
-        else:
-            handlers_name = 'qemu_aio_context'
+        handlers_name = argv[0] if len(argv) == 1 else 'qemu_aio_context'
         dump_aiocontext(gdb.parse_and_eval(handlers_name), verbose)

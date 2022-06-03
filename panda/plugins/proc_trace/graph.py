@@ -62,7 +62,7 @@ class ProcGraph(PyPlugin):
 
     def uninit(self):
         col_size = self.total_insns / self.n_cols
-        pids = set([x for x,y in self.time_data]) # really a list of (pid, tid) tuples
+        pids = {x for x,y in self.time_data}
         merged = {} # pid: [(True, 100), False, 9999)
 
         for pid in pids:
@@ -94,6 +94,9 @@ class ProcGraph(PyPlugin):
 
         # Render output: Stage 2: ascii art
         ascii_art = {} # (pid, tid): art
+        # /while
+        # Use on_count and off_count to determine how to label this cell
+        density_map = " ▂▃▄▅▆▇"
         for (pid, tid), times in merged.items():
             row = ""
             pending = None
@@ -102,7 +105,7 @@ class ProcGraph(PyPlugin):
             # e.g. col_size=10 (True, 8), (False, 1), (True, 10)
             # simplifies to {True:9, False:1} and adds (True:9) to pending
 
-            for cur_col in range(self.n_cols):
+            for _ in range(self.n_cols):
                 counted = 0
                 on_count = 0
                 off_count = 0
@@ -128,9 +131,6 @@ class ProcGraph(PyPlugin):
                         off_count += cnt
                     counted += cnt
 
-                # /while
-                # Use on_count and off_count to determine how to label this cell
-                density_map = " ▂▃▄▅▆▇"
                 on_count / col_size
 
                 idx = round((on_count/col_size)*(len(density_map)-1))

@@ -10,23 +10,31 @@ rootfs = "./test_fw/ubuntu-base-18.04.5-base-armhf.img"
 append = "root=/dev/vda rw earlyprintk=serial,ttyAMA0 console=ttyAMA0"
 
 panda = Panda(
-    arch = "arm", mem = "1G", extra_args=[
-
-    # Kernel
-    "-M", "vexpress-a9", "-kernel", kernel, "-dtb", dtb, "-append", append, "-nographic",
-
-    # Network
-    "-net", "nic,netdev=net0",
-    "-netdev", "user,id=net0,hostfwd=tcp::5443-:443,hostfwd=tcp::5580-:9080,hostfwd=tcp::2222-:22",
-
-    # FS via Virtio
-    "-drive", "if=none,file={},id=rootfs,format=raw".format(rootfs),
-    "-device", "virtio-blk-device,drive=rootfs",
-
-    # Syscalls_logger plog
-    "-pandalog", "test_sys_logger.plog"
-    ]
+    arch="arm",
+    mem="1G",
+    extra_args=[
+        "-M",
+        "vexpress-a9",
+        "-kernel",
+        kernel,
+        "-dtb",
+        dtb,
+        "-append",
+        append,
+        "-nographic",
+        "-net",
+        "nic,netdev=net0",
+        "-netdev",
+        "user,id=net0,hostfwd=tcp::5443-:443,hostfwd=tcp::5580-:9080,hostfwd=tcp::2222-:22",
+        "-drive",
+        f"if=none,file={rootfs},id=rootfs,format=raw",
+        "-device",
+        "virtio-blk-device,drive=rootfs",
+        "-pandalog",
+        "test_sys_logger.plog",
+    ],
 )
+
 
 dwarf_json = "./test_fw/dwarf_info.json"
 osi_kernelinfo = "./test_fw/kernel_info.conf"

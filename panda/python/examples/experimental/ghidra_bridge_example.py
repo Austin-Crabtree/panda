@@ -39,11 +39,10 @@ def populate_ghidra(cpu, pc):
             name = "[unknown]"
         while name in names:
             from random import randint
-            name += ":"+hex(randint(0,100000000))
+            name += f":{hex(randint(0,100000000))}"
         names.add(name)
         memory.createInitializedBlock(name,toAddr(mapping.base),mapping.size,0,monitor,False)
-        memory_read = read_memory(cpu,mapping.base,mapping.size)
-        if memory_read:
+        if memory_read := read_memory(cpu, mapping.base, mapping.size):
             memory.setBytes(toAddr(mapping.base), read_memory(cpu,mapping.base, mapping.size))
     analyzeAll(currentProgram)
     #import ghidra.app.decompiler as decomp

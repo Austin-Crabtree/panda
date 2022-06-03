@@ -33,33 +33,33 @@ class ReuseTaintDialog(QDialog):
     
     def __init__(self, filename, selected_process):
         super(ReuseTaintDialog, self).__init__()
-        
+
         self.setWindowTitle("Reuse ida_taint2 Settings?")
-        
+
         btn_ok = QPushButton("OK")
         btn_ok.clicked.connect(self.accept)
         btn_ok.setDefault(True)
-        
+
         btn_cancel = QPushButton("Cancel")
         btn_cancel.clicked.connect(self.reject)
-        
+
         self.lbl_file = QLabel()
-        self.lbl_file.setText("File:  " + filename)
+        self.lbl_file.setText(f"File:  {filename}")
         self.lbl_process = QLabel()
         self.lbl_process.setText("Process:  " + selected_process['process_name'] +
         " (ID=" + str(selected_process['process_id']) + ")")
-        
+
         self.chkbx_reuse_file = QCheckBox("Reuse File")
         self.chkbx_reuse_file.setChecked(True)
-        
+
         self.chkbx_reuse_process = QCheckBox("Reuse Process")
         self.chkbx_reuse_process.setChecked(True)
-        
+
         btns_hbox = QHBoxLayout()
         btns_hbox.addStretch(1)
         btns_hbox.addWidget(btn_ok)
         btns_hbox.addWidget(btn_cancel)
-        
+
         info_grid = QGridLayout()
         # make first column get any extra space
         info_grid.setColumnStretch(0, 1)
@@ -68,11 +68,11 @@ class ReuseTaintDialog(QDialog):
         info_grid.addWidget(self.chkbx_reuse_file, 0, 1)
         info_grid.addWidget(self.lbl_process, 1, 0)
         info_grid.addWidget(self.chkbx_reuse_process, 1, 1)
-        
+
         vbox = QVBoxLayout()
         vbox.addLayout(info_grid)
         vbox.addLayout(btns_hbox)
-        
+
         self.setLayout(vbox)
         
     def isReuseProcess(self):
@@ -84,29 +84,28 @@ class ReuseTaintDialog(QDialog):
     @classmethod
     def askToReuse(cls, filename, selected_process):
         rd = cls(filename, selected_process)
-        if QDialog.Accepted == rd.exec_():
-            if (not rd.isReuseFile()):
-                return ReuseTaintDialog.GET_NEW_FILE
-            elif (not rd.isReuseProcess()):
-                return ReuseTaintDialog.GET_NEW_PROCESS
-            else:
-                # silly, but really a no-op
-                return ReuseTaintDialog.CANCEL_REQUEST
+        if QDialog.Accepted != rd.exec_():
+            return ReuseTaintDialog.CANCEL_REQUEST
+        if (not rd.isReuseFile()):
+            return ReuseTaintDialog.GET_NEW_FILE
+        elif (not rd.isReuseProcess()):
+            return ReuseTaintDialog.GET_NEW_PROCESS
         else:
+            # silly, but really a no-op
             return ReuseTaintDialog.CANCEL_REQUEST
             
 # dialog to select a process from the list provided
 class ProcessSelectDialog(QDialog):
     def __init__(self, processes):
         super(ProcessSelectDialog, self).__init__()
-        
+
         self.setWindowTitle("Select Process")
-        
+
         btn_ok = QPushButton("OK")
         btn_ok.clicked.connect(self.accept)
         btn_cancel = QPushButton("Cancel")
         btn_cancel.clicked.connect(self.reject)
-        
+
         self.process_table = QTableWidget()
         self.process_table.setColumnCount(2)
         self.process_table.setHorizontalHeaderLabels(("Process Name", "PID"))
@@ -115,18 +114,16 @@ class ProcessSelectDialog(QDialog):
         self.process_table.verticalHeader().setVisible(False)
         self.process_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.process_table.setSelectionMode(QAbstractItemView.SingleSelection)
-        i = 0
-        for p in processes:
+        for i, p in enumerate(processes):
             process_name_item = QTableWidgetItem(p[0])
             process_name_item.setFlags(process_name_item.flags() & ~(Qt.ItemIsEditable))
             self.process_table.setItem(i, 0, process_name_item)
             process_id_item = QTableWidgetItem(str(p[1]))
             process_id_item.setFlags(process_id_item.flags() & ~(Qt.ItemIsEditable))
             self.process_table.setItem(i, 1, process_id_item)
-            i += 1
         # sort by process name (not stable, so pointless to sort by ID too)
         self.process_table.sortItems(0)
-        
+
         hbox = QHBoxLayout()
         hbox.addStretch(1)
         hbox.addWidget(btn_ok)
@@ -178,10 +175,7 @@ class TaintedFuncsChooser(ida_kernwin.Choose):
     # returns empty string if none found
     def _get_func_name(self, ea):
         name = ida_funcs.get_func_name(ea)
-        if not name:
-            return ""
-        else:
-            return name
+        return name or ""
             
     def OnInit(self):
         self.items.clear()
@@ -278,17 +272,11 @@ class ida_taint2_plugin_t(idaapi.plugin_t):
         
     # have taint information, whether or not it is currently displayed
     def have_taint_info(self):
-        if (None == self._taint_file):
-            return False
-        else:
-            return True
+        return self._taint_file is not None
             
     def is_instr_tainted(self, ea):
         # is this effective address in the current list of tainted addresses?
-        if (ea in self._ea_to_labels):
-            return True
-        else:
-            return False
+        return ea in self._ea_to_labels
     
     def is_func_tainted(self, ea):
         return (ea in self._tainted_funcs)
@@ -296,10 +284,7 @@ class ida_taint2_plugin_t(idaapi.plugin_t):
     # get set of labels for tainted instruction
     # if ea is not tainted, returns empty set
     def get_instr_taint_labels(self, ea):
-        if (ea in self._ea_to_labels):
-            return self._ea_to_labels[ea]
-        else:
-            return set()
+        return self._ea_to_labels[ea] if (ea in self._ea_to_labels) else set()
         
     def have_semantic_labels(self):
         return self._have_semantic_labels
@@ -309,17 +294,17 @@ class ida_taint2_plugin_t(idaapi.plugin_t):
         line1 = next(reader, None)
         if (line1[0].startswith("PANDA Build Date")):
             exec_time = next(reader, None)
-            if (show_metadata):
-                idaapi.msg(line1[0] + ":  " + line1[1] + "\n")
-                idaapi.msg(exec_time[0] + ":  " + exec_time[1] + "\n")
+            if show_metadata:
+                idaapi.msg(f"{line1[0]}:  {line1[1]}" + "\n")
+                idaapi.msg(f"{exec_time[0]}:  {exec_time[1]}" + "\n")
             next(reader, None)
         
     # read semantic label information, if it exists
     def _read_semantic_labels(self):
-        semantic_labels = dict()
+        semantic_labels = {}
         self._have_semantic_labels = False
         try:
-            with open(self._taint_file + ".semantic_labels") as f:
+            with open(f"{self._taint_file}.semantic_labels") as f:
                 reader = csv.reader(f)
                 for row in reader:
                     semantic_labels[int(row[0])]=row[1]
@@ -327,15 +312,16 @@ class ida_taint2_plugin_t(idaapi.plugin_t):
             pass
         except OSError:
             pass
-        if (len(semantic_labels) > 0):
+        if semantic_labels:
             self._have_semantic_labels = True
         return semantic_labels
 
     # if the user rebased the binary, need to adjust the list of tainted
     # functions
     def rebase_taint_info(self):
-        if (not (self._taint_file == None)):
-            input_file = open(self._taint_file, "r")
+        if self._taint_file is None:
+            return
+        with open(self._taint_file, "r") as input_file:
             reader = csv.reader(input_file)
             self._tainted_funcs.clear()
             self._skip_csv_header(reader, False)
@@ -350,37 +336,35 @@ class ida_taint2_plugin_t(idaapi.plugin_t):
                     continue
                 fn_start = fn.start_ea
                 self._tainted_funcs.add(fn_start)
-            input_file.close()
-            ida_kernwin.refresh_chooser(ShowTaintedFuncs.TITLE)
+        ida_kernwin.refresh_chooser(ShowTaintedFuncs.TITLE)
         
     def _read_taint_info(self):
         semantic_labels = self._read_semantic_labels()
-        input_file = open(self._taint_file, "r")
-        reader = csv.reader(input_file)
-        self._ea_to_labels.clear()
-        self._tainted_funcs.clear()
-        self._skip_csv_header(reader, False)
-        for row in reader:
-            pid = int(row[1])
-            pc = int(row[2], 16)
-            label = int(row[3])
+        with open(self._taint_file, "r") as input_file:
+            reader = csv.reader(input_file)
+            self._ea_to_labels.clear()
+            self._tainted_funcs.clear()
+            self._skip_csv_header(reader, False)
+            for row in reader:
+                pid = int(row[1])
+                pc = int(row[2], 16)
+                label = int(row[3])
 
-            try:
-                label = semantic_labels[label]
-            except KeyError:
-                pass
+                try:
+                    label = semantic_labels[label]
+                except KeyError:
+                    pass
 
-            if pid != self._tainted_process['process_id']:
-                continue
-            fn = ida_funcs.get_func(pc)
-            if not fn:
-                continue
-            fn_start = fn.start_ea
-            self._tainted_funcs.add(fn_start)
-            if pc not in self._ea_to_labels:
-                self._ea_to_labels[pc] = set()
-            self._ea_to_labels[pc].add(label)
-        input_file.close()
+                if pid != self._tainted_process['process_id']:
+                    continue
+                fn = ida_funcs.get_func(pc)
+                if not fn:
+                    continue
+                fn_start = fn.start_ea
+                self._tainted_funcs.add(fn_start)
+                if pc not in self._ea_to_labels:
+                    self._ea_to_labels[pc] = set()
+                self._ea_to_labels[pc].add(label)
         
     # select a new process from the current file, and update the associated
     # taint information
@@ -388,7 +372,7 @@ class ida_taint2_plugin_t(idaapi.plugin_t):
     # process
     def _update_process(self):
         selected_process = self._get_tainted_process()
-        if (None == selected_process):
+        if selected_process is None:
             # if this is first time selecting a process from this file, have
             # to wipe the file as don't have a process for it
             if (not self._seen_file):
@@ -416,15 +400,12 @@ class ida_taint2_plugin_t(idaapi.plugin_t):
         
     def _get_tainted_process(self):
         processes = set()
-        input_file = open(self._taint_file, "r")
-        reader = csv.reader(input_file)
-        self._skip_csv_header(reader, not self._seen_file)
-        for row in reader:
-            processes.add((row[0], int(row[1])))
-        input_file.close()
-        
-        selected_process = ProcessSelectDialog.selectProcess(processes)
-        return selected_process
+        with open(self._taint_file, "r") as input_file:
+            reader = csv.reader(input_file)
+            self._skip_csv_header(reader, not self._seen_file)
+            for row in reader:
+                processes.add((row[0], int(row[1])))
+        return ProcessSelectDialog.selectProcess(processes)
         
     def init(self):
         self._instr_painter = InstrPainter(self)
@@ -434,7 +415,7 @@ class ida_taint2_plugin_t(idaapi.plugin_t):
         self._ww_hook.hook()
         self._taint_file = None
         self._tainted_process = None
-        self._ea_to_labels = dict()
+        self._ea_to_labels = {}
         self._tainted_funcs = set()
         self._have_semantic_labels = False
         self._seen_file = False
@@ -534,27 +515,26 @@ class InstrHintHook(idaapi.UI_Hooks):
         return (packet_num, offset)
     
     def append_semantic_label(self, labels, first):
-        if (len(labels) > 0):
-            groupsep = ", "
-            lastlf = labels.rfind("\n")
-            # lastlf will be -1 if none found, but that won't mess up the formatting
-            if ((len(labels) - lastlf) > 50):
-                groupsep = ",\n"
-            updated_labels = labels + groupsep + str(first[0]) + ":" + str(first[1])
-        else:
-            updated_labels = str(first[0]) + ":" + str(first[1])
-        return updated_labels
+        if len(labels) <= 0:
+            return f"{str(first[0])}:{str(first[1])}"
+        lastlf = labels.rfind("\n")
+        groupsep = ",\n" if ((len(labels) - lastlf) > 50) else ", "
+        return labels + groupsep + str(first[0]) + ":" + str(first[1])
     
     def append_semantic_label_range(self, labels, first, last):
-        if (len(labels) > 0):
-            groupsep = ", "
-            lastlf = labels.rfind("\n")
-            if ((len(labels) - lastlf) > 50):
-                groupsep = ",\n"
-            updated_labels = labels + groupsep + str(first[0]) + ":" + str(first[1]) + "-" + str(last[1])
-        else:
-            updated_labels = str(first[0]) + ":" + str(first[1]) + "-" + str(last[1])
-        return updated_labels
+        if len(labels) <= 0:
+            return f"{str(first[0])}:{str(first[1])}-{str(last[1])}"
+        lastlf = labels.rfind("\n")
+        groupsep = ",\n" if ((len(labels) - lastlf) > 50) else ", "
+        return (
+            labels
+            + groupsep
+            + str(first[0])
+            + ":"
+            + str(first[1])
+            + "-"
+            + str(last[1])
+        )
         
     def compress_sorted_semantic_labels(self, labels):
         clabels = ""
@@ -562,9 +542,9 @@ class InstrHintHook(idaapi.UI_Hooks):
         last = None
         for item in labels:
             itemparts = self.semantic_label_sorter(item)
-            if (None == first):
+            if first is None:
                 first = itemparts
-            elif (None == last):
+            elif last is None:
                 if (first[0] == itemparts[0]):
                     if ((first[1]+1) == itemparts[1]):
                         last = itemparts
@@ -585,7 +565,7 @@ class InstrHintHook(idaapi.UI_Hooks):
                 clabels = self.append_semantic_label_range(clabels, first, last)
                 first = itemparts
                 last = None
-        if (None == last):
+        if last is None:
             clabels = self.append_semantic_label(clabels, first)
         else:
             clabels = self.append_semantic_label_range(clabels, first, last)
@@ -597,59 +577,63 @@ class InstrHintHook(idaapi.UI_Hooks):
         first = None
         last = None
         for item in labels:
-            if (0 == len(clabels)):
+            if (
+                len(clabels) != 0
+                and last is None
+                and ((first + 1) == item)
+                or len(clabels) != 0
+                and last != None
+                and (last + 1) == item
+            ):
+                # part of a consecutive sequence starting at first
+                last = item
+            elif len(clabels) != 0 and last is None:
+                    # first did not start a consecutive sequence
+                if (len(lastline) > 50):
+                    clabels = clabels + ",\n" + str(item)
+                    lastline = str(item)
+                else:
+                    clabels = f"{clabels}, {str(item)}"
+                    lastline = f"{lastline}, {str(item)}"
+                first = item
+            elif len(clabels) == 0:
                 # very first label
                 clabels = str(item)
                 lastline = str(item)
                 first = item
-            elif (None == last):
-                if ((first + 1) == item):
-                    # part of a consecutive sequence starting at first
-                    last = item
-                else:
-                    # first did not start a consecutive sequence
-                    if (len(lastline) > 50):
-                        clabels = clabels + ",\n" + str(item)
-                        lastline = str(item)
-                    else:
-                        clabels = clabels + ", " + str(item)
-                        lastline = lastline + ", " + str(item)
-                    first = item
-            elif ((last + 1) == item):
-                # item extends the consecutive sequence from last
-                last = item
             else:
                 # the previous last ended a consecutive sequence
                 if (len(lastline) > 50):
-                    clabels = clabels + "-" + str(last) + ",\n" + str(item)
+                    clabels = f"{clabels}-{str(last)}" + ",\n" + str(item)
                     lastline = str(item)
                 else:
-                    clabels = clabels + "-" + str(last) + ", " + str(item)
-                    lastline = lastline + "-" + str(last) + ", " + str(item)
+                    clabels = f"{clabels}-{str(last)}, {str(item)}"
+                    lastline = f"{lastline}-{str(last)}, {str(item)}"
                 first = item
                 last = None
         if (last is not None):
             # last label ends a consecutive sequence
-            clabels = clabels + "-" + str(last)
+            clabels = f"{clabels}-{str(last)}"
         return clabels
         
     def get_custom_viewer_hint(self, view, place):
-        if ((place is not None) and (idaapi.get_widget_type(view) == idaapi.BWN_DISASM)):
-            curea = place.toea()
-            label_set = self._taintinfo.get_instr_taint_labels(curea)
-            if (len(label_set) > 0):
-                # have to sort semantic labels differently than normal labels
-                if (self._taintinfo.have_semantic_labels()):
-                    sorted_labels = sorted(label_set, key=self.semantic_label_sorter)
-                    compressed_labels = self.compress_sorted_semantic_labels(sorted_labels)
-                else:
-                    sorted_labels = sorted(label_set, key=int)
-                    compressed_labels = self.compress_sorted_standard_labels(sorted_labels)
-                hint = "taint labels = " + compressed_labels
-                # in case someone wants to copy-n-paste the label list
-                idaapi.msg("Hint for " + ('0x%x' %curea) + ":  " + hint + "\n")
-                numlinefeeds = hint.count("\n")
-                return(hint, (numlinefeeds+1))
+        if place is None or idaapi.get_widget_type(view) != idaapi.BWN_DISASM:
+            return
+        curea = place.toea()
+        label_set = self._taintinfo.get_instr_taint_labels(curea)
+        if (len(label_set) > 0):
+            # have to sort semantic labels differently than normal labels
+            if (self._taintinfo.have_semantic_labels()):
+                sorted_labels = sorted(label_set, key=self.semantic_label_sorter)
+                compressed_labels = self.compress_sorted_semantic_labels(sorted_labels)
+            else:
+                sorted_labels = sorted(label_set, key=int)
+                compressed_labels = self.compress_sorted_standard_labels(sorted_labels)
+            hint = f"taint labels = {compressed_labels}"
+            # in case someone wants to copy-n-paste the label list
+            idaapi.msg("Hint for " + ('0x%x' %curea) + ":  " + hint + "\n")
+            numlinefeeds = hint.count("\n")
+            return(hint, (numlinefeeds+1))
 
 # watch for the "Functions window" context menu, and add an item to it to show
 # a window of tainted functions
@@ -694,15 +678,14 @@ class WatchForWindowsHook(idaapi.UI_Hooks):
                         None,
                         ShowHideTaint.HIDE_ACTION_TOOLTIP)):
                         ida_kernwin.attach_action_to_popup(widget, popup, ShowHideTaint.ACTION_NAME)
-            else:
-                if ida_kernwin.register_action(
+            elif ida_kernwin.register_action(
                     ida_kernwin.action_desc_t(
                         ShowHideTaint.ACTION_NAME,
                         ShowHideTaint.SHOW_ACTION_LABEL,
                         ShowHideTaint(self.taintinfo),
                         None,
                         ShowHideTaint.SHOW_ACTION_TOOLTIP)):
-                        ida_kernwin.attach_action_to_popup(widget, popup, ShowHideTaint.ACTION_NAME)
+                ida_kernwin.attach_action_to_popup(widget, popup, ShowHideTaint.ACTION_NAME)
                     
     def preprocess_action(self, name):
         # remember what doing - may need to take special action in

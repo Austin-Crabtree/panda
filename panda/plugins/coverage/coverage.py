@@ -22,12 +22,12 @@ INST_COLOR = 0x55AAFF
 class ProcessSelectDialog(QDialog):
     def __init__(self, processes, initial_process, title, headers, has_tid):
         super(ProcessSelectDialog, self).__init__()
-        
+
         self.setWindowTitle(title)
-        
+
         self.seq_chkbx = QCheckBox("Sequence Labels")
         self.seq_chkbx.setChecked(True)
-        
+
         # so can more easily prevent errors when omit this checkbox from GUI
         # create it whether or not we need it
         self.tid_chkbx = QCheckBox("Thread ID Labels")
@@ -35,12 +35,12 @@ class ProcessSelectDialog(QDialog):
             self.tid_chkbx.setChecked(True)
         else:
             self.tid_chkbx.setChecked(False)
-        
+
         btn_ok = QPushButton("OK")
         btn_ok.clicked.connect(self.accept)
         btn_cancel = QPushButton("Cancel")
         btn_cancel.clicked.connect(self.reject)
-        
+
         self.process_table = QTableWidget()
         self.process_table.setColumnCount(2)
         self.process_table.setHorizontalHeaderLabels(headers)
@@ -49,15 +49,13 @@ class ProcessSelectDialog(QDialog):
         self.process_table.verticalHeader().setVisible(False)
         self.process_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.process_table.setSelectionMode(QAbstractItemView.SingleSelection)
-        i = 0
-        for p in processes:
+        for i, p in enumerate(processes):
             process_name_item = QTableWidgetItem(p[0])
             process_name_item.setFlags(process_name_item.flags() & ~(Qt.ItemIsEditable))
             self.process_table.setItem(i, 0, process_name_item)
             process_id_item = QTableWidgetItem(str(p[1]))
             process_id_item.setFlags(process_id_item.flags() & ~(Qt.ItemIsEditable))
             self.process_table.setItem(i, 1, process_id_item)
-            i += 1
         self.process_table.sortItems(0)
         if (initial_process is not None):
             matches = self.process_table.findItems(initial_process, Qt.MatchExactly)
@@ -67,7 +65,7 @@ class ProcessSelectDialog(QDialog):
         chkboxes.addWidget(self.seq_chkbx)
         if (has_tid):
             chkboxes.addWidget(self.tid_chkbx)
-        
+
         hbox = QHBoxLayout()
         hbox.addStretch(1)
         hbox.addWidget(btn_ok)
@@ -100,9 +98,7 @@ class ProcessSelectDialog(QDialog):
         psd = cls(processes, initial_process, title, headers, has_tid)
         if QDialog.Accepted == psd.exec_():
             seqs = psd.isAddSequenceLabels()
-            tids = False
-            if (has_tid):
-                tids = psd.isAddThreadIDLabels()
+            tids = psd.isAddThreadIDLabels() if has_tid else False
             sel_id = psd.selectedProcess()
             return {'add_seqs':seqs, 'add_tids':tids, 'selected_id':sel_id}
         return None
@@ -111,14 +107,14 @@ def color_blocks(fn, pc, size):
     fn_start = fn.start_ea
     fn_name = ida_funcs.get_func_name(fn_start)
     if ("COVERED_" not in fn_name):
-        ida_name.set_name(fn_start, "COVERED_" + fn_name, ida_name.SN_CHECK)
+        ida_name.set_name(fn_start, f"COVERED_{fn_name}", ida_name.SN_CHECK)
     fn.color = FUNC_COLOR
     # PANDA blocks may be shorter than IDA blocks
     # so use the size to color just what PANDA executed
     i = 0
     while ((pc + i) < (pc + size)):
         ida_nalt.set_item_color(pc + i, INST_COLOR)
-        i = i + 1
+        i += 1
 
 def add_comments(info_for_pcs, selections):
     for pc, info in info_for_pcs.items():
@@ -126,15 +122,12 @@ def add_comments(info_for_pcs, selections):
         if (not comment):
             comment = ""
         if (selections['add_tids'] and selections['add_seqs']):
-            label_portion = "(seq #, thread ID) = {}".format(sorted(list(info)))
-        elif (selections['add_tids']):
-            label_portion = "thread ID = {}".format(sorted(list(info)))
+            label_portion = f"(seq #, thread ID) = {sorted(list(info))}"
+        elif selections['add_tids']:
+            label_portion = f"thread ID = {sorted(list(info))}"
         else:
-            label_portion = "seq # = {}".format(sorted(list(info)))
-        if (comment == ""):
-            comment = label_portion
-        else:
-            comment = comment + ", " + label_portion
+            label_portion = f"seq # = {sorted(list(info))}"
+        comment = label_portion if (comment == "") else f"{comment}, {label_portion}"
         ida_bytes.set_cmt(pc, comment, 0)
         
 def get_mode(reader, show_metadata):
@@ -144,9 +137,9 @@ def get_mode(reader, show_metadata):
     if (line1[0].startswith("PANDA Build Date")):
         # new format file - build date, then execution time, then mode line
         exec_time = next(reader, None)
-        if (show_metadata):
-            idaapi.msg(line1[0] + ":  " + line1[1] + "\n")
-            idaapi.msg(exec_time[0] + ":  " + exec_time[1] + "\n")
+        if show_metadata:
+            idaapi.msg(f"{line1[0]}:  {line1[1]}" + "\n")
+            idaapi.msg(f"{exec_time[0]}:  {exec_time[1]}" + "\n")
         fmt_row = next(reader, None)
         mode = fmt_row[0]
     else:
@@ -162,99 +155,100 @@ def main():
         return
 
     processes = set()
-    input_file = open(filename, "r")
-    reader = csv.reader(input_file)
-    
-    # what mode was used to produce this output?
-    mode = get_mode(reader, True)
-    # where to find the pertinent data depends upon the mode that produced it
-    if ("process" == mode):
-        id_index = 1
-        # process ID and thread ID are in decimal
-        id_radix = 10
-        tid_index = 2
-        pc_index = 4
-        size_index = 5
-        prefix = "process_"
-        title = "Select Process"
-        headers = ("Process Name", "PID")
-        has_tid = True
-    else:
-        id_index = 0
-        # ASID is in hex
-        id_radix = 16
-        tid_index = -1
-        pc_index = 2
-        size_index = 3
-        prefix = "ASID_"
-        title = "Select Address Space ID"
-        headers = ("Address Space ID", "ASID")
-        has_tid = False
-        
-    binary_name = get_root_filename()
-    match_len = 0
-    matched_process = None
-    # skip column headers
-    next(reader, None)
-    for row in reader:
-        processes.add((prefix + row[0], int(row[id_index], id_radix)))
-        # the process names from PANDA may be truncated, so the longest one
-        # that is a substring (or equal to) the binary's name is probably the
-        # one we want
-        if (("process" == mode) and (len(row[0]) > match_len) and binary_name.startswith(row[0])):
-            match_len = len(row[0])
-            matched_process = prefix + row[0]
-    input_file.close()
+    with open(filename, "r") as input_file:
+        reader = csv.reader(input_file)
 
+        # what mode was used to produce this output?
+        mode = get_mode(reader, True)
+            # where to find the pertinent data depends upon the mode that produced it
+        if mode == "process":
+            id_index = 1
+            # process ID and thread ID are in decimal
+            id_radix = 10
+            tid_index = 2
+            pc_index = 4
+            size_index = 5
+            prefix = "process_"
+            title = "Select Process"
+            headers = ("Process Name", "PID")
+            has_tid = True
+        else:
+            id_index = 0
+            # ASID is in hex
+            id_radix = 16
+            tid_index = -1
+            pc_index = 2
+            size_index = 3
+            prefix = "ASID_"
+            title = "Select Address Space ID"
+            headers = ("Address Space ID", "ASID")
+            has_tid = False
+
+        binary_name = get_root_filename()
+        match_len = 0
+        matched_process = None
+        # skip column headers
+        next(reader, None)
+        for row in reader:
+            processes.add((prefix + row[0], int(row[id_index], id_radix)))
+                    # the process names from PANDA may be truncated, so the longest one
+                    # that is a substring (or equal to) the binary's name is probably the
+                    # one we want
+            if (
+                mode == "process"
+                and len(row[0]) > match_len
+                and binary_name.startswith(row[0])
+            ):
+                match_len = len(row[0])
+                matched_process = prefix + row[0]
     selections = ProcessSelectDialog.selectProcess(
         processes, matched_process, title, headers, has_tid)
     if not selections:
         return
     if not selections['selected_id']:
         return
-    
+
     snapshot = ida_loader.snapshot_t()
     snapshot.desc = "Before coverage.py @ %s" % (datetime.datetime.now())
     ida_kernwin.take_database_snapshot(snapshot)
-    
+
     # the next bit may take a while, if the input file is large
     ida_kernwin.show_wait_box("HIDECANCEL\nProcessing file " + filename + "...")
-    
+
     colored_fn = False
     info_for_pcs = {}
-    input_file = open(filename, "r")
-    reader = csv.reader(input_file)
-    # skip mode and column headers
-    get_mode(reader, False)
-    seq_num = 0
-    for row in reader:
-        cur_id = int(row[id_index], id_radix)
-        pc = int(row[pc_index], 16)
-        size = int(row[size_index])
-        if (has_tid):
-            cur_tid = int(row[tid_index], id_radix)
-        if cur_id != selections['selected_id']:
-            continue
-        # get the function containing pc
-        fn = idaapi.get_func(pc)
-        if not fn:
-            continue
-        colored_fn = True
-        seq_num = seq_num + 1
-        color_blocks(fn, pc, size)
-        if (selections['add_tids'] or selections['add_seqs']):
-            if (pc not in info_for_pcs):
-                info_for_pcs[pc] = set()
-            # want to keep the thread IDs (if have them) with the matching
-            # sequence numbers
-            if (selections['add_tids'] and selections['add_seqs']):
-                info_pair = "(" + str(seq_num) + ", " + str(cur_tid) + ")"
-                info_for_pcs[pc].add(info_pair)
-            elif (selections['add_tids']):
-                info_for_pcs[pc].add(cur_tid)
-            else:
-                info_for_pcs[pc].add(seq_num)
-    input_file.close()
+    with open(filename, "r") as input_file:
+        reader = csv.reader(input_file)
+        # skip mode and column headers
+        get_mode(reader, False)
+        seq_num = 0
+        for row in reader:
+            cur_id = int(row[id_index], id_radix)
+            pc = int(row[pc_index], 16)
+            size = int(row[size_index])
+            if (has_tid):
+                cur_tid = int(row[tid_index], id_radix)
+            if cur_id != selections['selected_id']:
+                continue
+            # get the function containing pc
+            fn = idaapi.get_func(pc)
+            if not fn:
+                continue
+            colored_fn = True
+            seq_num = seq_num + 1
+            color_blocks(fn, pc, size)
+            if (selections['add_tids'] or selections['add_seqs']):
+                if (pc not in info_for_pcs):
+                    info_for_pcs[pc] = set()
+                            # want to keep the thread IDs (if have them) with the matching
+                            # sequence numbers
+                if (selections['add_tids'] and selections['add_seqs']):
+                    info_pair = f"({str(seq_num)}, " + str(cur_tid) + ")"
+                    info_for_pcs[pc].add(info_pair)
+                elif (selections['add_tids']):
+                    info_for_pcs[pc].add(cur_tid)
+                else:
+                    info_for_pcs[pc].add(seq_num)
     if (not colored_fn):
         print("WARNING:  did not find any selected functions")
     else:
@@ -265,8 +259,8 @@ if __name__ == "__main__":
     try:
         main()
     except ValueError as ve:
-        msg = "Failed to read coverage CSV: %s" % (ve.message)
+        msg = f"Failed to read coverage CSV: {ve.message}"
         QMessageBox.critical(None, "Error", msg)
     except Exception as e:
-        msg = "Unexpected error: %s" % (e.message)
+        msg = f"Unexpected error: {e.message}"
         QMessageBox.critical(None, "Error", msg)

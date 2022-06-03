@@ -13,19 +13,25 @@ panda = Panda(generic=arch)
 bin_dir = "taint"
 bin_name = "taint"
 
-assert(path.isfile(path.join(bin_dir, bin_name))), "Missing file {}".format(path.join(bin_dir, bin_name))
+assert path.isfile(
+    path.join(bin_dir, bin_name)
+), f"Missing file {path.join(bin_dir, bin_name)}"
+
 # Take a recording of toy running in the guest if necessary
-recording_name = bin_dir+"_"+bin_name
+recording_name = f"{bin_dir}_{bin_name}"
 
 # Debug - delete recording each time
-if path.isfile(recording_name +"-rr-snp"):
-    remove(recording_name +"-rr-snp")
-    remove(recording_name +"-rr-nondet.log")
+if path.isfile(f"{recording_name}-rr-snp"):
+    remove(f"{recording_name}-rr-snp")
+    remove(f"{recording_name}-rr-nondet.log")
 
 if not path.isfile(recording_name +"-rr-snp"):
     @panda.queue_blocking
     def run_it():
-        panda.record_cmd(f"./taint/taint", copy_directory=bin_dir, recording_name=recording_name)
+        panda.record_cmd(
+            "./taint/taint", copy_directory=bin_dir, recording_name=recording_name
+        )
+
         panda.end_analysis()
 
     print("Generating " + recording_name + " replay")
@@ -58,7 +64,7 @@ def taint_it(cpu, tb):
             str_base = panda.virtual_memory_read(cpu, string_base_p, 4, fmt='int') # *(esp+0x4)
 
             s = panda.virtual_memory_read(cpu, str_base, 16, fmt='str').decode('utf8')
-            print("Tainting string '{}'".format(s))
+            print(f"Tainting string '{s}'")
 
             global g_phys_addrs # Save all our tainted addresses for abe() check
 
@@ -75,13 +81,12 @@ def taint_it(cpu, tb):
 
 @panda.cb_after_block_exec(procname=bin_name) # After we've executed the block applying taint, make sure everything is tainted as expected
 def abe(cpu, tb, exit):
-    if tb.pc in mappings:
-        if mappings[tb.pc] == "apply_taint":
-            global g_phys_addrs
-            for idx, g_phys_addr in enumerate(g_phys_addrs):
-                assert(panda.taint_check_ram(g_phys_addr)), "Taint2 failed to identify same address as tainted"
-                assert([idx] == panda.taint_get_ram(g_phys_addr).get_labels()), "Incorrect labels"
-            print("Success! Tracked taint with no propagation (test 1 of 2)")
+    if tb.pc in mappings and mappings[tb.pc] == "apply_taint":
+        global g_phys_addrs
+        for idx, g_phys_addr in enumerate(g_phys_addrs):
+            assert(panda.taint_check_ram(g_phys_addr)), "Taint2 failed to identify same address as tainted"
+            assert([idx] == panda.taint_get_ram(g_phys_addr).get_labels()), "Incorrect labels"
+        print("Success! Tracked taint with no propagation (test 1 of 2)")
 
 @panda.cb_before_block_exec(procname=bin_name)
 def bbe(cpu, tb):
@@ -96,7 +101,15 @@ def bbe(cpu, tb):
             assert(panda.taint_check_ram(phys_addr)), "Final result is not tainted"
             tq = panda.taint_get_ram(phys_addr)
             taint_labels = tq.get_labels()
-            assert([0,2,4,6,8,10] == taint_labels), "Taint labels {} are incorrect".format(taint_labels)
+            assert [
+                0,
+                2,
+                4,
+                6,
+                8,
+                10,
+            ] == taint_labels, f"Taint labels {taint_labels} are incorrect"
+
             print("Success! Tracked taint propagation and final taint labels match expected (test 2 of 2)!")
             panda.end_analysis()
 

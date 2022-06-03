@@ -35,21 +35,14 @@ def run_in_guest():
     panda.copy_to_guest(str(HOST_PROG_DIR))
 
     run_cmds = [
-
-        # Start the test program, give it a sec to register handlers
         f"cd ./{PROG_DIR}",
         f"./{BIN_NAME} &",
-        f"sleep 1",
-
-        # SIGINT
+        "sleep 1",
         f"kill -s 2 $(ps aux | grep \'[{str(BIN_NAME)[0]}]{str(BIN_NAME)[1:]}\' | awk \'{{print $2}}\')",
-
-        # SIGSEGV
         f"kill -s 11 $(ps aux | grep \'[{str(BIN_NAME)[0]}]{str(BIN_NAME)[1:]}\' | awk \'{{print $2}}\')",
-
-        # SIGABRT
         f"kill -s 6 $(ps aux | grep \'[{str(BIN_NAME)[0]}]{str(BIN_NAME)[1:]}\' | awk \'{{print $2}}\')",
     ]
+
 
     for cmd in run_cmds:
         print(panda.run_serial_cmd(cmd, no_timeout=True))

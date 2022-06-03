@@ -178,8 +178,8 @@ class RamSection(object):
                     self.sizeinfo[self.name] = '0x%016x' % len
                     if self.write_memory:
                         print(self.name)
-                        mkdir_p('./' + os.path.dirname(self.name))
-                        f = open('./' + self.name, "wb")
+                        mkdir_p(f'./{os.path.dirname(self.name)}')
+                        f = open(f'./{self.name}', "wb")
                         f.truncate(0)
                         f.truncate(len)
                         self.files[self.name] = f
@@ -373,10 +373,7 @@ class VMSDFieldBool(VMSDFieldGeneric):
 
     def read(self):
         super(VMSDFieldBool, self).read()
-        if self.data[0] == 0:
-            self.data = False
-        else:
-            self.data = True
+        self.data = self.data[0] != 0
         return self.data
 
 class VMSDFieldStruct(VMSDFieldGeneric):
@@ -389,7 +386,7 @@ class VMSDFieldStruct(VMSDFieldGeneric):
         # When we see compressed array elements, unfold them here
         new_fields = []
         for field in self.desc['struct']['fields']:
-            if not 'array_len' in field:
+            if 'array_len' not in field:
                 new_fields.append(field)
                 continue
             array_len = field.pop('array_len')
@@ -455,10 +452,7 @@ class VMSDFieldStruct(VMSDFieldGeneric):
                    return value
 
     def getDictArray(self, array):
-        r = []
-        for value in array:
-           r.append(self.getDictItem(value))
-        return r
+        return [self.getDictItem(value) for value in array]
 
     def getDictOrderedDict(self, dict):
         r = collections.OrderedDict()
@@ -550,10 +544,12 @@ class MigrationDump(object):
         if desc_only:
             return
 
-        ramargs = {}
-        ramargs['page_size'] = self.vmsd_desc['page_size']
-        ramargs['dump_memory'] = dump_memory
-        ramargs['write_memory'] = write_memory
+        ramargs = {
+            'page_size': self.vmsd_desc['page_size'],
+            'dump_memory': dump_memory,
+            'write_memory': write_memory,
+        }
+
         self.section_classes[('ram',0)][1] = ramargs
 
         while True:
@@ -565,7 +561,10 @@ class MigrationDump(object):
                 #print('Section QEMU_VM_CONFIGURATION')
                 section = ConfigurationSection(file)
                 section.read()
-            elif section_type == self.QEMU_VM_SECTION_START or section_type == self.QEMU_VM_SECTION_FULL:
+            elif section_type in [
+                self.QEMU_VM_SECTION_START,
+                self.QEMU_VM_SECTION_FULL,
+            ]:
                 section_id = file.read32()
                 name = file.readstr()
                 instance_id = file.read32()
@@ -576,7 +575,10 @@ class MigrationDump(object):
                 self.sections[section_id] = section
                 #print(f'Section QEMU_VM_SECTION_START/QEMU_VM_SECTION_FULL {section_id=} {name=}')
                 section.read()
-            elif section_type == self.QEMU_VM_SECTION_PART or section_type == self.QEMU_VM_SECTION_END:
+            elif section_type in [
+                self.QEMU_VM_SECTION_PART,
+                self.QEMU_VM_SECTION_END,
+            ]:
                 section_id = file.read32()
                 #print(f'Section QEMU_VM_SECTION_PART/QEMU_VM_SECTION_END {section_id}')
                 self.sections[section_id].read()
@@ -642,15 +644,9 @@ def make_diff(file1, file2):
         t2, _, f2, s2, e2, fc2 = addrs2[a]
         sz1 = e1 - s1
         sz2 = e2 - s2
-        if t1 != t2:
+        if t1 != t2 or sz1 != sz2:
             # Types are diff, no hope of similarity. Save the latter.
             #print(f'[{a:08x}] DIFF types {t1} != {t2}')
-            ram2.file.file.seek(s2)
-            data2 = ram2.file.file.read(sz2)
-            diffs[a] = ('COPY', data2)
-        elif sz1 != sz2:
-            # Types are same but section sizes differ.
-            #print(f'[{a:08x}] DIFF sizes {sz1} != {sz2}')
             ram2.file.file.seek(s2)
             data2 = ram2.file.file.read(sz2)
             diffs[a] = ('COPY', data2)
@@ -668,24 +664,17 @@ def make_diff(file1, file2):
                 #print("   " + ", ".join(f"{g[0]}-{g[-1]+1}" for g in groups))
                 diffdata = {g[0]: data2[g[0]:g[-1]+1].tobytes() for g in groups}
                 diffs[a] = ('DIFF', diffdata)
-            else:
-                pass # No diff
-    
-    # A diff is: reference, header, EOS locations, diffs, footer
-    f2 = open(file2, 'rb')
-    diff_dict = {}
-    diff_dict['reference'] = file1
-    diff_dict['header'] = f2.read(ram2.ramsections[0][3])
-    diff_dict['eos_pos'] = eos_pos
-    diff_dict['diffs'] = diffs
-    f2.seek(ram2.ramsections[-1][4])
-    diff_dict['footer'] = f2.read()
-    # Check for trailing EOS. In this case the gap data will be wrong on the last one.
-    if ram2.ramsections[-1][0] == 'EOS':
-        _, _, _, s, e, _ = ram2.ramsections[-1]
-        f2.seek(s)
-        diff_dict['eos_trail'] = f2.read(e-s)
-    f2.close()
+    with open(file2, 'rb') as f2:
+        diff_dict = {'reference': file1, 'header': f2.read(ram2.ramsections[0][3])}
+        diff_dict['eos_pos'] = eos_pos
+        diff_dict['diffs'] = diffs
+        f2.seek(ram2.ramsections[-1][4])
+        diff_dict['footer'] = f2.read()
+        # Check for trailing EOS. In this case the gap data will be wrong on the last one.
+        if ram2.ramsections[-1][0] == 'EOS':
+            _, _, _, s, e, _ = ram2.ramsections[-1]
+            f2.seek(s)
+            diff_dict['eos_trail'] = f2.read(e-s)
     return diff_dict
 
 def find_ref(ref):
@@ -700,7 +689,7 @@ def find_ref(ref):
         sys.exit(1)
     else:
         print(f"Reference snapshot {ref} not found", file=sys.stderr)
-        print(f"Hint: maybe you need to set PANDA_REFSNAPS ?", file=sys.stderr)
+        print("Hint: maybe you need to set PANDA_REFSNAPS ?", file=sys.stderr)
         sys.exit(1)
 
 def rebuild(diff_dict, out_filename):
@@ -728,43 +717,38 @@ def rebuild(diff_dict, out_filename):
         assert ram2_reconstruct[-1][0] == 'EOS'
         ram2_reconstruct[-1] = ('EOS_TRAIL', 0, 0, 0, 0, 0)
 
-    outf = open(out_filename,'wb')
-    outf.write(diff_dict['header'])
-    for t1, a, f1, s1, e1, fc1 in ram2_reconstruct:
-        if t1 == 'EOS_TRAIL':
-            outf.write(diff_dict['eos_trail'])
-        elif t1 == 'EOS':
-            ram1.file.file.seek(s1)
-            data = ram1.file.file.read(e1-s1)
-            outf.write(data)
-        elif a in diffs:
-            kind, data = diffs[a]
-            if kind == 'COPY':
-                outf.write(data)
-            elif kind == 'DIFF':
+    with open(out_filename,'wb') as outf:
+        outf.write(diff_dict['header'])
+        for t1, a, f1, s1, e1, fc1 in ram2_reconstruct:
+            if t1 == 'EOS_TRAIL':
+                outf.write(diff_dict['eos_trail'])
+            elif t1 == 'EOS' or a not in diffs:
                 ram1.file.file.seek(s1)
-                patched_data = io.BytesIO(ram1.file.file.read(e1-s1))
-                for a in data:
-                    patched_data.seek(a)
-                    patched_data.write(data[a])
-                outf.write(patched_data.getvalue())
+                data = ram1.file.file.read(e1-s1)
+                outf.write(data)
             else:
-                assert False
-        else:
-            ram1.file.file.seek(s1)
-            data = ram1.file.file.read(e1-s1)
-            outf.write(data)
-    outf.write(diff_dict['footer'])
-    outf.close()
+                kind, data = diffs[a]
+                if kind == 'COPY':
+                    outf.write(data)
+                elif kind == 'DIFF':
+                    ram1.file.file.seek(s1)
+                    patched_data = io.BytesIO(ram1.file.file.read(e1-s1))
+                    for a in data:
+                        patched_data.seek(a)
+                        patched_data.write(data[a])
+                    outf.write(patched_data.getvalue())
+                else:
+                    assert False
+        outf.write(diff_dict['footer'])
 
 ###############################################################################
 
 def do_diff(args):
-    if not args.output: args.output = args.files[1] + '.pdiff'
+    if not args.output:
+        args.output = f'{args.files[1]}.pdiff'
     diff_dict = make_diff(args.files[0], args.files[1])
-    diff_file = open(args.output, 'wb')
-    pickle.dump(diff_dict, diff_file)
-    diff_file.close()
+    with open(args.output, 'wb') as diff_file:
+        pickle.dump(diff_dict, diff_file)
 
 def do_inflate(args):
     if not args.output:

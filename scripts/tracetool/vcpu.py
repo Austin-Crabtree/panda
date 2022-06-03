@@ -26,12 +26,11 @@ def transform_event(event):
         assert "tcg-exec" not in event.properties
 
         event.args = Arguments([("CPUState *", "__cpu"), event.args])
+        fmt = "\"cpu=%p \""
         if "tcg" in event.properties:
-            fmt = "\"cpu=%p \""
             event.fmt = [fmt + event.fmt[0],
                          fmt + event.fmt[1]]
         else:
-            fmt = "\"cpu=%p \""
             event.fmt = fmt + event.fmt
     return event
 
@@ -60,8 +59,7 @@ def transform_args(format, event, *args, **kwargs):
 
     """
     if "vcpu" in event.properties:
-        ok, func = try_import("tracetool.format." + format,
-                              "vcpu_transform_args")
+        ok, func = try_import(f"tracetool.format.{format}", "vcpu_transform_args")
         assert ok
         assert func
         return Arguments([func(event.args[:1], *args, **kwargs),

@@ -52,7 +52,7 @@ def read_kernelinfo(kernelinfo, config):
 		task.next_task_offset = int(config['task.next_task_offset'])
 		fs.f_dentry_offset = int(config['fs.f_dentry_offset'])
 		fs.f_vfsmnt_offset = int(config['fs.f_vfsmnt_offset'])
-	
+
 	task.thread_group_offset = int(config['task.thread_group_offset'])
 	task.pid_offset = int(config['task.pid_offset'])
 	task.tgid_offset = int(config['task.tgid_offset'])
@@ -123,10 +123,10 @@ class osi_linux:
 		from configparser import ConfigParser
 		config = ConfigParser()
 		if len(config.read(kconf_file)) ==  0:
-			print("Could not read file %s" % kconf_file)
+			print(f"Could not read file {kconf_file}")
 			return
 		if kconf_group not in config:
-			print("Could not find group %s in file %s" % (kconf_group, kconf_file))
+			print(f"Could not find group {kconf_group} in file {kconf_file}")
 			return
 		self.kinfo = ffi.new("struct kernelinfo*")
 		read_kernelinfo(self.kinfo,config[kconf_group])

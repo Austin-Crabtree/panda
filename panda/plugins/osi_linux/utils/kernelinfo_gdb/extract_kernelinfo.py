@@ -28,7 +28,7 @@ class KernelInfo(gdb.Command):
         global file_out
         if arg:
             file_out = open(arg, "w+")  
-            print(f"Printing output to {arg}") 
+            print(f"Printing output to {arg}")
         uts_release = get_symbol_as_string("init_uts_ns->name->release")
         uts_version = get_symbol_as_string("init_uts_ns->name->version")
         uts_machine = get_symbol_as_string("init_uts_ns->name->machine")
@@ -36,7 +36,7 @@ class KernelInfo(gdb.Command):
         release = get_symbol_as_string("init_uts_ns->name->release")
         versions = release.split(".")
         # version.c can have a bunch of junk - just extract a number
-        versions[2] = re.search("\d+",versions[2]).group(0)
+        versions[2] = re.search("\d+",versions[2])[0]
         print(f"version.a = {versions[0]}",file=file_out)
         print(f"version.b = {versions[1]}",file=file_out)
         print(f"version.c = {versions[2]}",file=file_out)
@@ -53,8 +53,8 @@ class KernelInfo(gdb.Command):
             per_cpu_offset_0_addr = 0
         print(f"task.per_cpu_offsets_addr = {per_cpu_offset_addr}",file=file_out)
         print(f"task.per_cpu_offset_0_addr = {per_cpu_offset_0_addr}",file=file_out)
-        
-        
+
+
         init_task_addr = gdb.execute('printf "%llu", &init_task',to_string=True)
         # current_task is only an x86 thing
         # It's defined in /arch/x86/kernel/cpu/common.c
@@ -65,8 +65,16 @@ class KernelInfo(gdb.Command):
 
         print(f"task.current_task_addr = {current_task_addr}",file=file_out)
         print(f"task.init_addr = {init_task_addr}",file=file_out)
-        print(f"#task.per_cpu_offsets_addr = {hex(int(per_cpu_offset_addr))[2:]}",file=file_out)
-        print(f"#task.per_cpu_offset_0_addr = {hex(int(per_cpu_offset_0_addr))}",file=file_out)
+        print(
+            f"#task.per_cpu_offsets_addr = {hex(per_cpu_offset_addr)[2:]}",
+            file=file_out,
+        )
+
+        print(
+            f"#task.per_cpu_offset_0_addr = {hex(per_cpu_offset_0_addr)}",
+            file=file_out,
+        )
+
         print(f"#task.current_task_addr = {hex(int(current_task_addr))}",file=file_out)
         print(f"#task.init_addr = {hex(int(init_task_addr))}",file=file_out)
 

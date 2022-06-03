@@ -14,7 +14,7 @@ results = {} # Callno: name(s)
 @panda.queue_blocking
 def run_cmds():
     panda.revert_sync("root")
-    result = panda.run_serial_cmd("strace " + target)
+    result = panda.run_serial_cmd(f"strace {target}")
     panda.end_analysis()
 
 @panda.ppp("syscalls2", "on_all_sys_enter")
@@ -57,8 +57,11 @@ panda.run()
 print()
 print("#syscallno => name (times observed), alt-name (times observed)")
 for callno, data in sorted(results.items()):
-    out = ""
-    for name, count in sorted(data.items(), key=lambda item: item[1], reverse=True):
-        out += f"{name} ({count})\t"
+    out = "".join(
+        f"{name} ({count})\t"
+        for name, count in sorted(
+            data.items(), key=lambda item: item[1], reverse=True
+        )
+    )
 
     print(f"#{callno} =>\t {out}")

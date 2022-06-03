@@ -70,7 +70,9 @@ def on_sys_sendto_return(cpustate, a, fd, buff, length, sockaddr, z, flags):
 		for i in range(length):
 			if panda.taint_check_ram(buff_physaddr + i):
 				tq = panda.taint_get_ram(buff_physaddr + i)
-				print("Result is tainted. " + str(tq) +" at "+hex(buff_physaddr + i) +" at offset "+str(i) +" in the packet")
+				print(
+				    f"Result is tainted. {str(tq)} at {hex(buff_physaddr + i)} at offset {str(i)} in the packet"
+				)
 				finished = True
 				panda.end_analysis()
 

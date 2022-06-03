@@ -26,7 +26,7 @@ def main():
         return
 
     snapshot = ida_loader.snapshot_t()
-    snapshot.desc = "Before undo_ida_taint2.py @ %s" % (datetime.datetime.now())
+    snapshot.desc = f"Before undo_ida_taint2.py @ {datetime.datetime.now()}"
     ida_kernwin.take_database_snapshot(snapshot)
 
     for segea in idautils.Segments():

@@ -7,7 +7,7 @@ import os
 import sys
 import shutil
 thisdir = os.path.dirname(os.path.realpath(__file__))
-td = os.path.realpath(thisdir + "/../..")
+td = os.path.realpath(f"{thisdir}/../..")
 sys.path.append(td)
 from ptest_utils import *
 sys.path.append(pandascriptsdir)
@@ -19,23 +19,23 @@ def both(msg, disp_fn):
 
 tof = open(tmpoutfile, "w")
 try:
-    qcow = pandaregressiondir + "/qcows/wheezy_32bit.qcow2"
+    qcow = f"{pandaregressiondir}/qcows/wheezy_32bit.qcow2"
     create_boot_recording(qemu, qcow, replayfile, boot_time=5)
-    msg = "Create boot recording for %s succeeded" % testname
+    msg = f"Create boot recording for {testname} succeeded"
     both(msg, progress)
 except Exception as e:
-    msg = "Create recording for %s FAILED" % testname
+    msg = f"Create recording for {testname} FAILED"
     both(msg, error)
     tof.close()
     raise e
 
 try:
     run_test_debian("", "rr-boot-test", "i386")
-    msg = "Replay for %s succeeded" % testname
+    msg = f"Replay for {testname} succeeded"
     both(msg, progress)
     tof.close()
 except Exception as e:
-    msg = "Replay for %s FAILED" % testname
+    msg = f"Replay for {testname} FAILED"
     both(msg, error)
     tof.close()
     raise e

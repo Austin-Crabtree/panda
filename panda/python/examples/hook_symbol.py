@@ -38,7 +38,7 @@ def hook_fwrite(cpu, tb, h):
         buf = panda.virtual_memory_read(cpu, data_ptr, count*size_t)
         global stored_buf
         stored_buf += buf
-        print(f"libc:fwrite called")
+        print("libc:fwrite called")
     else:
         h.enabled = False
 

@@ -28,7 +28,7 @@ def setup():
     res = panda.serial_read_until(shell_prompt)
     print ("saw shell prompt #2")
 
-    print ("res=[%s]" % res)
+    print(f"res=[{res}]")
     print ("Logged in.  Sleeping for 1 min")
     time.sleep(60)
 
@@ -36,7 +36,7 @@ def setup():
     panda.queue_main_loop_wait_fn(panda.libpanda.panda_snap, [charptr])
     panda.queue_main_loop_wait_fn(panda.libpanda.panda_cont)
     time.sleep(60)
-    
+
     panda.end_analysis()
     print ("Done")
 

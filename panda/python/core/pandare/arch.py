@@ -36,31 +36,22 @@ class PandaArch():
         '''
         bits = None
         endianness = None # String 'little' or 'big'
-        if self.panda.arch_name == "i386":
-            bits = 32
-            endianness = "little"
-        elif self.panda.arch_name == "x86_64":
-            bits = 64
-            endianness = "little"
-        elif self.panda.arch_name == "arm":
+        if self.panda.arch_name == "arm":
             endianness = "little" # XXX add support for arm BE?
             bits = 32
-        elif self.panda.arch_name == "aarch64":
-            bits = 64
-            endianness = "little" # XXX add support for arm BE?
-        elif self.panda.arch_name == "ppc":
-            bits = 32
-            endianness = "big"
-        elif self.panda.arch_name == "mips":
-            bits = 32
-            endianness = "big"
-        elif self.panda.arch_name == "mipsel":
+        elif self.panda.arch_name in ["i386", "mipsel"]:
             bits = 32
             endianness = "little"
         elif self.panda.arch_name == "mips64":
             bits = 64
             endianness = "big"
 
+        elif self.panda.arch_name in ["ppc", "mips"]:
+            bits = 32
+            endianness = "big"
+        elif self.panda.arch_name in ["x86_64", "aarch64"]:
+            bits = 64
+            endianness = "little"
         assert (bits is not None), f"Missing num_bits logic for {self.panda.arch_name}"
         assert (endianness is not None), f"Missing endianness logic for {self.panda.arch_name}"
         register_size = int(bits/8)
@@ -159,7 +150,7 @@ class PandaArch():
 
         Note for syscalls we define arg[0] as syscall number and then 1-index the actual args
         '''
-        
+
         argloc = self._get_arg_loc(idx, convention)
 
         if self._is_stack_loc(argloc):
@@ -400,11 +391,10 @@ class Aarch64Arch(PandaArch):
         Return an aarch64 register
         '''
 
-        if reg == 32:
-            print("WARNING: unsupported get sp for aarch64")
-            return 0
-        else:
+        if reg != 32:
             return cpu.env_ptr.xregs[reg]
+        print("WARNING: unsupported get sp for aarch64")
+        return 0
 
     def _set_reg_val(self, cpu, reg, val):
         '''
@@ -488,10 +478,7 @@ class MipsArch(PandaArch):
         on error)
         '''
 
-        flip = 1
-        if convention == 'syscall' and self.get_reg(cpu, "A3") == 1:
-            flip = -1
-
+        flip = -1 if convention == 'syscall' and self.get_reg(cpu, "A3") == 1 else 1
         return flip * super().get_retval(cpu)
 
 
@@ -587,9 +574,12 @@ class X86Arch(PandaArch):
         # not yet supported
         self.reg_retval = {"default":    "EAX",
                            "syscall":    "EAX"}
-        
-        self.call_conventions = {"cdecl": ["stack_{x}" for x in range(20)], # 20: arbitrary but big
-                                 "syscall": ["EAX", "EBX", "ECX", "EDX", "ESI", "EDI", "EBP"]}
+
+        self.call_conventions = {
+            "cdecl": ["stack_{x}" for _ in range(20)],
+            "syscall": ["EAX", "EBX", "ECX", "EDX", "ESI", "EDI", "EBP"],
+        }
+
         self.call_conventions['default'] = self.call_conventions['cdecl']
 
         self.reg_sp = regnames.index('ESP')

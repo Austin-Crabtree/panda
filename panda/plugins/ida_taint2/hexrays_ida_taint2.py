@@ -41,35 +41,35 @@ class HIT2_ReuseDialog(QDialog):
     
     def __init__(self):
         super(HIT2_ReuseDialog, self).__init__()
-        
+
         self.setWindowTitle("Reuse ida_taint2 Settings?")
-        
+
         btn_ok = QPushButton("OK")
         btn_ok.clicked.connect(self.accept)
         btn_ok.setDefault(True)
-        
+
         btn_cancel = QPushButton("Cancel")
         btn_cancel.clicked.connect(self.reject)
-        
+
         self.lbl_file = QLabel()
-        self.lbl_file.setText("File:  " + filename)
+        self.lbl_file.setText(f"File:  {filename}")
         self.lbl_pid = QLabel()
-        self.lbl_pid.setText("Process ID:  " + str(selected_pid))
-        
+        self.lbl_pid.setText(f"Process ID:  {str(selected_pid)}")
+
         self.chkbx_reuse = QCheckBox("Reuse Process")
         self.chkbx_reuse.setChecked(True)
-        
+
         hbox = QHBoxLayout()
         hbox.addStretch(1)
         hbox.addWidget(btn_ok)
         hbox.addWidget(btn_cancel)
-        
+
         vbox = QVBoxLayout()
         vbox.addWidget(self.lbl_file)
         vbox.addWidget(self.lbl_pid)
         vbox.addWidget(self.chkbx_reuse)
         vbox.addLayout(hbox)
-        
+
         self.setLayout(vbox)
         
     def isReuseProcess(self):
@@ -78,25 +78,24 @@ class HIT2_ReuseDialog(QDialog):
     @classmethod
     def askToReuse(cls):
         rd = cls()
-        if (QDialog.Accepted == rd.exec_()):
-            if (rd.isReuseProcess()):
-                return HIT2_ReuseDialog.REUSE_PROCESS
-            else:
-                return HIT2_ReuseDialog.GET_NEW_PROCESS
-        else:
+        if QDialog.Accepted != rd.exec_():
             return HIT2_ReuseDialog.CANCEL_REQUEST
+        if (rd.isReuseProcess()):
+            return HIT2_ReuseDialog.REUSE_PROCESS
+        else:
+            return HIT2_ReuseDialog.GET_NEW_PROCESS
             
 class HIT2_ProcessSelectDialog(QDialog):
     def __init__(self, processes):
         super(HIT2_ProcessSelectDialog, self).__init__()
-        
+
         self.setWindowTitle("Select Process")
-        
+
         btn_ok = QPushButton("OK")
         btn_ok.clicked.connect(self.accept)
         btn_cancel = QPushButton("Cancel")
         btn_cancel.clicked.connect(self.reject)
-        
+
         self.process_table = QTableWidget()
         self.process_table.setColumnCount(2)
         self.process_table.setHorizontalHeaderLabels(("Process Name", "PID"))
@@ -106,8 +105,7 @@ class HIT2_ProcessSelectDialog(QDialog):
         self.process_table.verticalHeader().setVisible(False)
         self.process_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.process_table.setSelectionMode(QAbstractItemView.SingleSelection)
-        i = 0
-        for p in processes:
+        for i, p in enumerate(processes):
             process_name_item = QTableWidgetItem(p[0])
             process_name_item.setFlags(
                 process_name_item.flags() & ~(Qt.ItemIsEditable))
@@ -116,8 +114,6 @@ class HIT2_ProcessSelectDialog(QDialog):
             process_id_item.setFlags(
                 process_id_item.flags() & ~(Qt.ItemIsEditable))
             self.process_table.setItem(i, 1, process_id_item)
-            i += 1
-
         hbox = QHBoxLayout()
         hbox.addStretch(1)
         hbox.addWidget(btn_ok)
@@ -158,10 +154,7 @@ class hexrays_ida_taint2_t(ida_idaapi.plugin_t):
     def tag_addrcode(self, s):
         # the eas associated with a line of pseudocode are encoded in
         # invisible COLOR_ADDR tags in the line of text
-        if ((idaapi.COLOR_ON == s[0]) and (chr(idaapi.COLOR_ADDR) == s[1])):
-            return True
-        else:
-            return False
+        return idaapi.COLOR_ON == s[0] and chr(idaapi.COLOR_ADDR) == s[1]
         
     def clear_colors(self, cfunc):
         # clear the background colors on all the pseudocode lines
@@ -182,7 +175,7 @@ class hexrays_ida_taint2_t(ida_idaapi.plugin_t):
             curline = copy(sv[i].line)
             while (len(curline) > 0):
                 skipcode_index = ida_lines.tag_skipcode(curline)
-                if (0 == skipcode_index):
+                if skipcode_index == 0:
                     # no code found, go to next character
                     curline = curline[1:]
                 else:
@@ -192,9 +185,10 @@ class hexrays_ida_taint2_t(ida_idaapi.plugin_t):
                         if (anchor.is_citem_anchor() and
                             not anchor.is_blkcmt_anchor()):
                             address = cfunc.treeitems.at(addr_tag).ea
-                            if (address != ida_idaapi.BADADDR):
-                                if (address in tainted_pcs):
-                                    sv[i].bgcolor = INST_COLOR
+                            if (address != ida_idaapi.BADADDR) and (
+                                address in tainted_pcs
+                            ):
+                                sv[i].bgcolor = INST_COLOR
                     curline = curline[skipcode_index:]
 
     def skip_csv_header(self, reader, show_metadata):
@@ -202,68 +196,69 @@ class hexrays_ida_taint2_t(ida_idaapi.plugin_t):
         line1 = next(reader, None)
         if (line1[0].startswith("PANDA Build Date")):
             exec_time = next(reader, None)
-            if (show_metadata):
-                idaapi.msg(line1[0] + ":  " + line1[1] + "\n")
-                idaapi.msg(exec_time[0] + ":  " + exec_time[1] + "\n")
+            if show_metadata:
+                idaapi.msg(f"{line1[0]}:  {line1[1]}" + "\n")
+                idaapi.msg(f"{exec_time[0]}:  {exec_time[1]}" + "\n")
             next(reader, None)
 
     def color_pseudocode(self, widget, clear_old):
         global filename
         global selected_pid
         global tainted_pcs
-        
+
         vu = ida_hexrays.get_widget_vdui(widget)
-        
+
         cfunc = vu.cfunc
         if cfunc is None:
             ida_kernwin.msg("hexrays_ida_taint2:  Widget has no " +
                 "decompiled pseudocode!\n")
             return True
-            
-        if (0 == len(tainted_pcs)):        
+
+        if len(tainted_pcs) == 0:    
             # get output of ida_taint2 plugin to determine which lines get
             # colored
             filename, _ = QFileDialog.getOpenFileName(None, "Open file", ".",
                 "CSV Files (*.csv)")
             if filename == "":
                 return
-            ida_kernwin.msg("hexrays_ida_taint2:  file selected is " + filename + "\n")
-            
-            processes = set()
-            input_file = open(filename, "r")
-            reader = csv.reader(input_file)
-            self.skip_csv_header(reader, True)
+            ida_kernwin.msg(f"hexrays_ida_taint2:  file selected is {filename}" + "\n")
 
-            for row in reader:
-                processes.add((row[0], int(row[1])))
-            input_file.close()
-            
+            processes = set()
+            with open(filename, "r") as input_file:
+                reader = csv.reader(input_file)
+                self.skip_csv_header(reader, True)
+
+                for row in reader:
+                    processes.add((row[0], int(row[1])))
             selected_pid = HIT2_ProcessSelectDialog.selectProcess(processes)
             # N.B.:  0 is a valid process ID
-            if (None == selected_pid):
+            if selected_pid is None:
                 return
-            
-            input_file = open(filename, "r")
-            reader = csv.reader(input_file)
-            tainted_pcs = set()
-            # skip header
-            self.skip_csv_header(reader, True)
-            for row in reader:
-                pid = int(row[1])
-                pc = int(row[2], 16)
-            
-                if pid != selected_pid:
-                    continue
-                
-                if (pc not in tainted_pcs):
-                    tainted_pcs.add(pc)
-            input_file.close()
+
+            with open(filename, "r") as input_file:
+                reader = csv.reader(input_file)
+                tainted_pcs = set()
+                # skip header
+                self.skip_csv_header(reader, True)
+                for row in reader:
+                    pid = int(row[1])
+                    pc = int(row[2], 16)
+
+                    if pid != selected_pid:
+                        continue
+
+                    if (pc not in tainted_pcs):
+                        tainted_pcs.add(pc)
         else:
-            ida_kernwin.msg("hexrays_ida_taint2:  reusing " + filename + " and process " + str(selected_pid) + "\n")
-        
+            ida_kernwin.msg(
+                f"hexrays_ida_taint2:  reusing {filename} and process {str(selected_pid)}"
+                + "\n"
+            )
+
+
         if (clear_old):
             self.clear_colors(cfunc)
-            
+
         if (len(tainted_pcs) > 0):
             self.color_eas(cfunc, tainted_pcs)
             ida_kernwin.refresh_idaview_anyway()
@@ -271,7 +266,7 @@ class hexrays_ida_taint2_t(ida_idaapi.plugin_t):
             if (clear_old):
                 ida_kernwin.refresh_idaview_anyway()
             ida_kernwin.msg("hexrays_ida_taint2:  no tainted PCs found " + "for selected process\n")
-            
+
         return 1
     
     def init(self):

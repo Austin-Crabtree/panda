@@ -24,7 +24,7 @@ def get_fs_base():
     old = gdb.parse_and_eval('*(uint64_t*)($rsp - 120)')
     gdb.execute('call arch_prctl(0x1003, $rsp - 120)', False, True)
     fs_base = gdb.parse_and_eval('*(uint64_t*)($rsp - 120)')
-    gdb.execute('set *(uint64_t*)($rsp - 120) = %s' % old, False, True)
+    gdb.execute(f'set *(uint64_t*)($rsp - 120) = {old}', False, True)
     return fs_base
 
 def pthread_self():
@@ -43,11 +43,13 @@ def pthread_self():
 def get_glibc_pointer_guard():
     '''Fetch glibc pointer guard value'''
     fs_base = pthread_self()
-    return gdb.parse_and_eval('*(uint64_t*)((uint64_t)%s + 0x30)' % fs_base)
+    return gdb.parse_and_eval(f'*(uint64_t*)((uint64_t){fs_base} + 0x30)')
 
 def glibc_ptr_demangle(val, pointer_guard):
     '''Undo effect of glibc's PTR_MANGLE()'''
-    return gdb.parse_and_eval('(((uint64_t)%s >> 0x11) | ((uint64_t)%s << (64 - 0x11))) ^ (uint64_t)%s' % (val, val, pointer_guard))
+    return gdb.parse_and_eval(
+        f'(((uint64_t){val} >> 0x11) | ((uint64_t){val} << (64 - 0x11))) ^ (uint64_t){pointer_guard}'
+    )
 
 def get_jmpbuf_regs(jmpbuf):
     JB_RBX  = 0
@@ -72,18 +74,15 @@ def get_jmpbuf_regs(jmpbuf):
 def bt_jmpbuf(jmpbuf):
     '''Backtrace a jmpbuf'''
     regs = get_jmpbuf_regs(jmpbuf)
-    old = dict()
+    old = {i: gdb.parse_and_eval(f'(uint64_t)${i}') for i in regs}
 
     for i in regs:
-        old[i] = gdb.parse_and_eval('(uint64_t)$%s' % i)
-
-    for i in regs:
-        gdb.execute('set $%s = %s' % (i, regs[i]))
+        gdb.execute(f'set ${i} = {regs[i]}')
 
     gdb.execute('bt')
 
     for i in regs:
-        gdb.execute('set $%s = %s' % (i, old[i]))
+        gdb.execute(f'set ${i} = {old[i]}')
 
 def coroutine_to_jmpbuf(co):
     coroutine_pointer = co.cast(gdb.lookup_type('CoroutineUContext').pointer())

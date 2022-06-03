@@ -62,12 +62,14 @@ import tracetool
 def get_list(only_public = False):
     """Get a list of (name, description) pairs."""
     res = [("nop", "Tracing disabled.")]
-    modnames = []
-    for filename in os.listdir(tracetool.backend.__path__[0]):
-        if filename.endswith('.py') and filename != '__init__.py':
-            modnames.append(filename.rsplit('.', 1)[0])
+    modnames = [
+        filename.rsplit('.', 1)[0]
+        for filename in os.listdir(tracetool.backend.__path__[0])
+        if filename.endswith('.py') and filename != '__init__.py'
+    ]
+
     for modname in sorted(modnames):
-        module = tracetool.try_import("tracetool.backend." + modname)
+        module = tracetool.try_import(f"tracetool.backend.{modname}")
 
         # just in case; should never fail unless non-module files are put there
         if not module[0]:
@@ -95,7 +97,7 @@ def exists(name):
     if name == "nop":
         return True
     name = name.replace("-", "_")
-    return tracetool.try_import("tracetool.backend." + name)[1]
+    return tracetool.try_import(f"tracetool.backend.{name}")[1]
 
 
 class Wrapper:
@@ -108,8 +110,10 @@ class Wrapper:
 
     def _run_function(self, name, *args, **kwargs):
         for backend in self._backends:
-            func = tracetool.try_import("tracetool.backend." + backend,
-                                        name % self._format, None)[1]
+            func = tracetool.try_import(
+                f"tracetool.backend.{backend}", name % self._format, None
+            )[1]
+
             if func is not None:
                 func(*args, **kwargs)
 

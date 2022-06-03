@@ -8,7 +8,7 @@ import sys
 import shutil
 
 thisdir = os.path.dirname(os.path.realpath(__file__))
-td = os.path.realpath(thisdir + "/../..")
+td = os.path.realpath(f"{thisdir}/../..")
 sys.path.append(td)
 
 from ptest_utils import *
@@ -58,4 +58,4 @@ with open(tmpoutfile, "w") as tof:
 
 
 # cleanup
-shutil.rmtree(tmpoutdir + "/replays")
+shutil.rmtree(f"{tmpoutdir}/replays")

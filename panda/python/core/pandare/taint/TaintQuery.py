@@ -34,11 +34,8 @@ class TaintQuery:
         return self.__str__()
 
     def get_labels(self):
-        ret = []
-        for l in self:
-            ret.append(l)
         #self.reset() # Reset so we can query again
-        return ret
+        return [l for l in self]
 
     # I think this should reset query result so we can 
     # iterate over labels again

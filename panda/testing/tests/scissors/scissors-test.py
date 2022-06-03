@@ -8,7 +8,7 @@ import struct
 import shutil
 
 thisdir = os.path.dirname(os.path.realpath(__file__))
-td = os.path.realpath(thisdir + "/../..")
+td = os.path.realpath(f"{thisdir}/../..")
 sys.path.append(td)
 
 from ptest_utils import *
@@ -37,13 +37,12 @@ seed = random.randint(0,1000000000)
 random.seed(seed)
 progress_fullout("random seed is %d" % seed)
 
-# get number of instructions in file 
+# get number of instructions in file
 for binary in binaries:
     # ew -- ray this is grossssss
-    with open(replaydir+"/%s-rr-nondet.log" % binary, 'rb') as f:
+    with open(replaydir + f"/{binary}-rr-nondet.log", 'rb') as f:
         num_instrs = struct.unpack("<Q", f.read()[:8])
         num_instrs = num_instrs[0]
-
 #    random.seed()
     for i in range(num_tests):
         progress ("binary %s test %d" % (binary, i))
@@ -52,14 +51,20 @@ for binary in binaries:
         end_pos = random.randint(start_pos, num_instrs)
 
         # Create slice
-        run_test_debian("-panda scissors:name=" + replaydir + "/%s_reduced,start=%d,end=%d" % (binary, start_pos, end_pos), binary, "i386")
+        run_test_debian(
+            f"-panda scissors:name={replaydir}"
+            + "/%s_reduced,start=%d,end=%d" % (binary, start_pos, end_pos),
+            binary,
+            "i386",
+        )
 
-        # Attempt to replay slice. 
+
+        # Attempt to replay slice.
         try:
-            run_test_debian("", "%s_reduced" % binary, "i386")
+            run_test_debian("", f"{binary}_reduced", "i386")
             msg = "Replay for %s (snipping %d to %d) succeeded" % (testname, start_pos, end_pos)
             progress(msg)
-            progress_fullout(msg)            
+            progress_fullout(msg)
             num_pass += 1
         except Exception as e:
             msg = "Replay for %s (snipping %d to %d) FAILED" % (testname, start_pos, end_pos)

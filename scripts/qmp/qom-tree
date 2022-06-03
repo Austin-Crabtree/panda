@@ -55,22 +55,21 @@ srv = QEMUMonitorProtocol(socket_path)
 srv.connect()
 
 def list_node(path):
-    print('%s' % path)
+    print(f'{path}')
     items = srv.command('qom-list', path=path)
     for item in items:
         if not item['type'].startswith('child<'):
             try:
-                print('  %s: %s (%s)' % (item['name'], srv.command('qom-get', path=path, property=item['name']), item['type']))
+                print(
+                    f"  {item['name']}: {srv.command('qom-get', path=path, property=item['name'])} ({item['type']})"
+                )
+
             except:
-                print('  %s: <EXCEPTION> (%s)' % (item['name'], item['type']))
+                print(f"  {item['name']}: <EXCEPTION> ({item['type']})")
     print('')
     for item in items:
         if item['type'].startswith('child<'):
             list_node((path if (path != '/') else '')  + '/' + item['name'])
 
-if len(args) == 0:
-    path = '/'
-else:
-    path = args[0]
-
+path = '/' if len(args) == 0 else args[0]
 list_node(path)

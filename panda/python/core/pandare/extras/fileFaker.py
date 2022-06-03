@@ -48,10 +48,7 @@ class FakeFile:
 
         if offset >= len(self.contents):  # No bytes left to read
             return b""
-        # Otherwise there are bytes left to read
-        read_data = self.contents[offset:offset+size]
-
-        return read_data
+        return self.contents[offset:offset+size]
 
     def write(self, offset, write_data):
         '''
@@ -146,9 +143,7 @@ class HyperFD:
 
         if whence == SEEK_SET:
             self.offset = offset
-        elif whence == SEEK_CUR:
-            self.offset = self.offset + offset
-        elif whence == SEEK_END:
+        elif whence in [SEEK_CUR, SEEK_END]:
             self.offset = self.offset + offset
         else:
             raise ValueError(f"Unsupported whence {whence} in seek")
@@ -246,7 +241,7 @@ class FileFaker(FileHook):
         to put the results we want there
         '''
 
-        (cpu, pc) = args[0:2]
+        (cpu, pc) = args[:2]
         fd = args[2+fd_pos]
         asid = self._panda.current_asid(cpu)
 
@@ -286,7 +281,7 @@ class FileFaker(FileHook):
             try:
                 data = self._panda.virtual_memory_read(cpu, buf_ptr, count)
             except ValueError:
-                self.ff_logger.error(f"Unable to read buffer that was being written")
+                self.ff_logger.error("Unable to read buffer that was being written")
                 return
 
             bytes_written = hfd.write(data)

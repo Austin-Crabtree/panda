@@ -15,44 +15,37 @@ if len(sys.argv) < 3:
     print('usage: signrom.py input output')
     sys.exit(1)
 
-fin = open(sys.argv[1], 'rb')
-fout = open(sys.argv[2], 'wb')
+with open(sys.argv[1], 'rb') as fin:
+    fout = open(sys.argv[2], 'wb')
 
-magic = fin.read(2)
-if magic != b'\x55\xaa':
-    sys.exit("%s: option ROM does not begin with magic 55 aa" % sys.argv[1])
+    magic = fin.read(2)
+    if magic != b'\x55\xaa':
+        sys.exit(f"{sys.argv[1]}: option ROM does not begin with magic 55 aa")
 
-size_byte = ord(fin.read(1))
-fin.seek(0)
-data = fin.read()
+    size_byte = ord(fin.read(1))
+    fin.seek(0)
+    data = fin.read()
 
-size = size_byte * 512
-if len(data) > size:
-    sys.stderr.write('error: ROM is too large (%d > %d)\n' % (len(data), size))
-    sys.exit(1)
-elif len(data) < size:
-    # Add padding if necessary, rounding the whole input to a multiple of
-    # 512 bytes according to the third byte of the input.
-    # size-1 because a final byte is added below to store the checksum.
-    data = data.ljust(size-1, b'\0')
-else:
-    if ord(data[-1:]) != 0:
-        sys.stderr.write('WARNING: ROM includes nonzero checksum\n')
-    data = data[:size-1]
-
-fout.write(data)
-
-checksum = 0
-for b in data:
-    # catch Python 2 vs. 3 differences
-    if isinstance(b, int):
-        checksum += b
+    size = size_byte * 512
+    if len(data) > size:
+        sys.stderr.write('error: ROM is too large (%d > %d)\n' % (len(data), size))
+        sys.exit(1)
+    elif len(data) < size:
+        # Add padding if necessary, rounding the whole input to a multiple of
+        # 512 bytes according to the third byte of the input.
+        # size-1 because a final byte is added below to store the checksum.
+        data = data.ljust(size-1, b'\0')
     else:
-        checksum += ord(b)
-checksum = (256 - checksum) % 256
+        if ord(data[-1:]) != 0:
+            sys.stderr.write('WARNING: ROM includes nonzero checksum\n')
+        data = data[:size-1]
 
-# Python 3 no longer allows chr(checksum)
-fout.write(struct.pack('B', checksum))
+    fout.write(data)
 
-fin.close()
+    checksum = sum(b if isinstance(b, int) else ord(b) for b in data)
+    checksum = (256 - checksum) % 256
+
+    # Python 3 no longer allows chr(checksum)
+    fout.write(struct.pack('B', checksum))
+
 fout.close()

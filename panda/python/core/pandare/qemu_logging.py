@@ -99,7 +99,7 @@ class QEMU_Log_Manager:
         if name.upper() in self.log_members:
             self._set_log_bit(self.log_members[name.upper()])
         else:
-            raise Exception("no such log member: " + name)
+            raise Exception(f"no such log member: {name}")
     
     def disable(self, name):
         """Disables the specified log level.
@@ -114,7 +114,7 @@ class QEMU_Log_Manager:
         if name.upper() in self.log_members:
             self._unset_log_bit(self.log_members[name.upper()])
         else:
-            raise Exception("no such log member: " + name)
+            raise Exception(f"no such log member: {name}")
 
     def output_to_file(self, file_name, append=True):
         """Change qemu log file to file_name. If append is True, output will

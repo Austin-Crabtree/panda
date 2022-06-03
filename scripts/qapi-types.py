@@ -137,16 +137,18 @@ def gen_variants(variants):
 
 
 def gen_type_cleanup_decl(name):
-    ret = mcgen('''
+    return mcgen(
+        '''
 
 void qapi_free_%(c_name)s(%(c_name)s *obj);
 ''',
-                c_name=c_name(name))
-    return ret
+        c_name=c_name(name),
+    )
 
 
 def gen_type_cleanup(name):
-    ret = mcgen('''
+    return mcgen(
+        '''
 
 void qapi_free_%(c_name)s(%(c_name)s *obj)
 {
@@ -161,8 +163,8 @@ void qapi_free_%(c_name)s(%(c_name)s *obj)
     visit_free(v);
 }
 ''',
-                c_name=c_name(name))
-    return ret
+        c_name=c_name(name),
+    )
 
 
 class QAPISchemaGenTypeVisitor(QAPISchemaVisitor):
@@ -241,15 +243,10 @@ class QAPISchemaGenTypeVisitor(QAPISchemaVisitor):
 # instance of the code for built-in types.  Generate it only when
 # do_builtins, enabled by command line option -b.  See also
 # QAPISchemaGenTypeVisitor.visit_end().
-do_builtins = False
-
 (input_file, output_dir, do_c, do_h, prefix, opts) = \
     parse_command_line('b', ['builtins'])
 
-for o, a in opts:
-    if o in ('-b', '--builtins'):
-        do_builtins = True
-
+do_builtins = any(o in ('-b', '--builtins') for o, a in opts)
 c_comment = '''
 /*
  * deallocation functions for schema-defined QAPI types

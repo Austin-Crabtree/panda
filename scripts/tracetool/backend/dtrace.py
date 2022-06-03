@@ -36,11 +36,7 @@ def binary():
 
 
 def generate_h_begin(events, group):
-    if group == "root":
-        header = "trace-dtrace-root.h"
-    else:
-        header = "trace-dtrace.h"
-
+    header = "trace-dtrace-root.h" if group == "root" else "trace-dtrace.h"
     out('#include "%s"' % header,
         '')
 

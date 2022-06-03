@@ -22,10 +22,7 @@ PUBLIC = True
 def is_string(arg):
     strtype = ('const char*', 'char*', 'const char *', 'char *')
     arg_strip = arg.lstrip()
-    if arg_strip.startswith(strtype) and arg_strip.count('*') == 1:
-        return True
-    else:
-        return False
+    return bool(arg_strip.startswith(strtype) and arg_strip.count('*') == 1)
 
 
 def generate_h_begin(events, group):
@@ -60,20 +57,17 @@ def generate_c(event, group):
         if is_string(type_):
             out('    size_t arg%(name)s_len = %(name)s ? MIN(strlen(%(name)s), MAX_TRACE_STRLEN) : 0;',
                 name=name)
-            strsizeinfo = "4 + arg%s_len" % name
+            strsizeinfo = f"4 + arg{name}_len"
             sizes.append(strsizeinfo)
         else:
             sizes.append("8")
-    sizestr = " + ".join(sizes)
-    if len(event.args) == 0:
-        sizestr = '0'
-
-    event_id = 'TRACE_' + event.name.upper()
+    sizestr = '0' if len(event.args) == 0 else " + ".join(sizes)
+    event_id = f'TRACE_{event.name.upper()}'
     if "vcpu" in event.properties:
         # already checked on the generic format code
         cond = "true"
     else:
-        cond = "trace_event_get_state(%s)" % event_id
+        cond = f"trace_event_get_state({event_id})"
 
     out('',
         '    if (!%(cond)s) {',

@@ -16,9 +16,12 @@ bin_dir = "../tests/taint"
 bin_name = "taint"
 cmd = path.join(path.split(bin_dir)[-1], bin_name)
 
-assert(path.isfile(path.join(bin_dir, bin_name))), "Missing executable {}".format(path.join(bin_dir, bin_name))
+assert path.isfile(
+    path.join(bin_dir, bin_name)
+), f"Missing executable {path.join(bin_dir, bin_name)}"
+
 # Take a recording of toy running in the guest if necessary
-recording_name = (bin_dir+"_"+bin_name).replace("/","_").replace("..","~")
+recording_name = f"{bin_dir}_{bin_name}".replace("/", "_").replace("..", "~")
 print(recording_name)
 
 @blocking
@@ -26,7 +29,7 @@ def take_recording():
     panda.record_cmd(cmd, copy_directory=bin_dir, recording_name=recording_name)
     panda.stop_run()
 
-if not path.isfile(recording_name +"-rr-snp"):
+if not path.isfile(f"{recording_name}-rr-snp"):
     panda.queue_async(take_recording)
     panda.run()
 
